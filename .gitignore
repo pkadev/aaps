@@ -1,0 +1,12 @@
+*.o
+*.hex
+*.elf
+*.eep
+*.lss
+*.lst
+*.map
+*.sym
+*.dep
+*.swp
+cscope.out
+cscope.files
