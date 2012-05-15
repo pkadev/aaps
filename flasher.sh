@@ -1,2 +1,2 @@
 #!/bin/sh 
-sudo avrdude -c avrispv2 -p m88 -P usb -U flash:w:main.hex
+avrdude -c avrispv2 -p m128 -P usb -U flash:w:main.hex

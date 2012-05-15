@@ -40,7 +40,7 @@
 
 
 # MCU name
-MCU = atmega88
+MCU = atmega128
 
 
 # Processor frequency.
@@ -59,7 +59,7 @@ TARGET = main
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = $(TARGET).c adc.c uart.c timer.c
+SRC = $(TARGET).c uart.c timer.c cmd.c 1wire.c
 
 
 # List Assembler source files here.
@@ -75,7 +75,7 @@ ASRC =
 # Optimization level, can be [0, 1, 2, 3, s]. 
 #     0 = turn off optimization. s = optimize for size.
 #     (Note: 3 is not always the best optimization level. See avr-libc FAQ.)
-OPT = 3
+OPT = s -mcall-prologues
 
 
 # Debugging format.
