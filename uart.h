@@ -15,7 +15,7 @@ void uart_init(void);
 /*
  * @brief print string to serial port
  */
-int kprint (const char *fmt, ...);
+int printk (const char *fmt, ...);
 
 /*
  * @brief print string to serial port
