@@ -25,6 +25,8 @@ static int fan_cmd_med(void);
 static int fan_cmd_med2(void);
 static int fan_cmd_off(void);
 
+#define CHAR_BACKSPACE 0x7F
+
 ISR(USART0_RX_vect)
 {
     char c = UART_DATA_REG;
@@ -35,6 +37,10 @@ ISR(USART0_RX_vect)
         }
         cmd_input.buffer[cmd_input.pos] = c;
         cmd_input.pos++;
+    } else if (c == CHAR_BACKSPACE) {
+        cmd_input.pos--;
+        
+       // printk("char: %i\n", c);
     }
 }
 
