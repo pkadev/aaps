@@ -5,13 +5,13 @@
 
 #define FALSE 0
 #define TRUE  1
-#define DQ_PORT PORTE
-#define DQ_DDR DDRE
-#define DQ_PIN 7
-#define DQ_IN PINE
-#define DQ_MASK 0x80
-#define DQ_LOW() PORTE&=~(1<<DQ_PIN)
-#define DQ_HIGH() PORTE|=(1<<DQ_PIN)
+#define DQ_PORT PORTG
+#define DQ_DDR DDRG
+#define DQ_PIN 5
+#define DQ_IN PING
+#define DQ_MASK (1<<DQ_PIN)
+#define DQ_LOW() DQ_PORT&=~(1<<DQ_PIN)
+#define DQ_HIGH() DQ_PORT|=(1<<DQ_PIN)
 
 #define CRC8INIT    0x00
 #define CRC8POLY    0x18    //0X18 = X^8+X^5+X^4+X^0
@@ -52,6 +52,7 @@ typedef struct {
  * Public function for 1-Wire
  */
 uint8_t ow_num_devices();
+void ow_print_device_addr(ow_device_t *ow_device);
 ow_ret_val_t ow_get_devices(ow_device_t *ow_devices);
 ow_ret_val_t ow_read_temperature(ow_device_t *ow_device, ow_temp_t *ow_temp);
 ow_ret_val_t ow_read_scratchpad(ow_device_t *rom, ow_scratchpad_t *scratchpad);

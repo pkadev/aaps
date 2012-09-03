@@ -40,7 +40,7 @@
 
 
 # MCU name
-MCU = atmega128
+MCU = atmega2560
 
 
 # Processor frequency.
@@ -48,7 +48,7 @@ MCU = atmega128
 #     processor frequency. You can then use this symbol in your source code to 
 #     calculate timings. Do NOT tack on a 'UL' at the end, this will be done
 #     automatically to create a 32-bit value in your source code.
-F_CPU = 8000000
+F_CPU = 16000000
 
 
 # Output format. (can be srec, ihex, binary)
@@ -59,7 +59,7 @@ TARGET = main
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = $(TARGET).c uart.c timer.c cmd.c 1wire.c
+SRC = $(TARGET).c uart.c timer.c cmd.c 1wire.c fan.c
 
 
 # List Assembler source files here.
@@ -178,8 +178,9 @@ MATH_LIB = -lm
 # only used for heap (malloc()).
 #EXTMEMOPTS = -Wl,--defsym=__heap_start=0x801100,--defsym=__heap_end=0x80ffff
 
-EXTMEMOPTS =
-
+#EXTMEMOPTS = -Wl,--defsym=__heap_start=0x802200,--defsym=__heap_end=0x8051ff
+#EXTMEMOPTS = -Wl,--defsym=__heap_start=0x802200,--defsym=__heap_end=0x8031ff
+#EXTMEMOPTS = -Wl,--section-start,.data=0x802200,--defsym=__heap_end=0x80a1ff
 
 
 #---------------- Linker Options ----------------

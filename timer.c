@@ -11,7 +11,7 @@ char time[SYSTIME_STR_LEN];
 
 ISR(TIMER0_OVF_vect)
 {
-    TCNT2 = 5;
+    TCNT0 = 4;
     sys_time++;
     if (sys_time == 1000)
     {
@@ -23,8 +23,8 @@ ISR(TIMER0_OVF_vect)
 void timer_init(void)
 {
     TCNT0 = 223;
-    TIMSK = (1<<TOIE0);
-    TCCR0 = (1<<CS20) | (1<<CS21);
+    TIMSK0 = (1<<TOIE0);
+    TCCR0B = (1<<CS01) | (1<<CS00);
     //ASSR = (1<<AS0);
     printk("System timer initilized with 1ms resolution\n");
 }

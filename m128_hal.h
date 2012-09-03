@@ -5,7 +5,6 @@
  * AVR specific defines 
  */
 
-#define DDR_DQ DDRE
 
 /*
  * System defines 
@@ -15,8 +14,9 @@
 /*
  * Defines for Watchdog
  */
-#define WD_CTRL_REG             WDTCR
+#define WD_CTRL_REG             WDTCSR
 #define WD_CHANGE_ENABLE        WDCE
+#define WD_IT_ENABLE_MASK       WDIE
 #define WD_ENABLE               WDE
 #define WD_PRESCALER2           WDP2
 #define WD_PRESCALER1           WDP1
