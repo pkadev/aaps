@@ -24,6 +24,7 @@ static int fan_cmd_on(void);
 static int fan_cmd_med(void);
 static int fan_cmd_med2(void);
 static int fan_cmd_off(void);
+static int cmd_set_voltage(void);
 
 #define CHAR_BACKSPACE 0x7F
 
@@ -39,7 +40,6 @@ ISR(USART0_RX_vect)
         cmd_input.pos++;
     } else if (c == CHAR_BACKSPACE) {
         cmd_input.pos--;
-        
        // printk("char: %i\n", c);
     }
 }
@@ -83,11 +83,12 @@ void pending_cmd(void)
         }
     }
 }
-
+static const char * commands[] = { "temp", "volt_out", "reboot", "fanon", "fanmed",
+                                   "fanmed2", "fanoff", "setvoltage", "getvoltage" };
 
 static void find_service(const char * service)
 {
-    if (strcmp(service, "temp") == 0)
+    if (strcmp(service, commands[0]) == 0)
         pt2Function = temp_out;
     if (strcmp(service, "volt_out") == 0)
         pt2Function = volt_out;
@@ -101,6 +102,8 @@ static void find_service(const char * service)
         pt2Function = fan_cmd_med2;
     if (strcmp(service, "fanoff") == 0)
         pt2Function = fan_cmd_off;
+    if (strcmp(service, "setvoltage") == 0)
+        pt2Function = cmd_set_voltage;
 
 }
 
@@ -155,6 +158,12 @@ static int fan_cmd_med2(void)
 static int fan_cmd_off(void)
 {
         set_fan_speed(SYS_FAN0, 0);
+    return 0;
+}
+
+static int cmd_set_voltage(void)
+{
+    printk("cmt_set_voltage not implemented!\n");
     return 0;
 }
 
