@@ -59,7 +59,7 @@ TARGET = main
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = $(TARGET).c uart.c timer.c cmd.c 1wire.c fan.c
+SRC = $(TARGET).c uart.c timer.c cmd.c 1wire.c fan.c ds3234.c settings.c
 
 
 # List Assembler source files here.

@@ -3,11 +3,14 @@
 #include <avr/wdt.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include "m128_hal.h"
 #include "cmd.h"
 #include "uart.h"
 #include "1wire.h"
 #include "fan.h"
+#include "settings.h"
+
 
 int (*pt2Function)(void) = 0;
 static uint8_t initialized = 0;
@@ -31,7 +34,7 @@ static int cmd_set_voltage(void);
 ISR(USART0_RX_vect)
 {
     char c = UART_DATA_REG;
-    if(isalnum(c) || c == 0x0D)
+    if(isalnum(c) || c == 0x0D || c == ' ')
     {
         if (c == 0x0D) {
             c = 0x0;
@@ -102,7 +105,7 @@ static void find_service(const char * service)
         pt2Function = fan_cmd_med2;
     if (strcmp(service, "fanoff") == 0)
         pt2Function = fan_cmd_off;
-    if (strcmp(service, "setvoltage") == 0)
+    if (strstr(service, "setvoltage") != 0)
         pt2Function = cmd_set_voltage;
 
 }
@@ -157,13 +160,28 @@ static int fan_cmd_med2(void)
 
 static int fan_cmd_off(void)
 {
-        set_fan_speed(SYS_FAN0, 0);
+    set_fan_speed(SYS_FAN0, 0);
     return 0;
 }
 
 static int cmd_set_voltage(void)
 {
-    printk("cmt_set_voltage not implemented!\n");
+    char *fw = strchr(cmd_input.buffer, ' ');
+    char *bw = strrchr(cmd_input.buffer, ' ');
+    char *param = bw + 1;
+
+    if (fw != bw) {
+        printk("Too many parameters\n");
+        return -1;
+    }
+
+    if (!isdigit(*(fw+1))) {
+        printk("Param not integer [%s]\n", (fw + 1));
+        return -1;
+    }
+
+    int voltage = atoi(param);
+    settings_write_settings(voltage);
     return 0;
 }
 
