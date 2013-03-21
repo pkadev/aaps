@@ -10,6 +10,7 @@
 #include "1wire.h"
 #include "fan.h"
 #include "settings.h"
+#include "ipc.h"
 
 
 int (*pt2Function)(void) = 0;
@@ -28,6 +29,7 @@ static int fan_cmd_med(void);
 static int fan_cmd_med2(void);
 static int fan_cmd_off(void);
 static int cmd_set_voltage(void);
+static int cmd_send_ipc(void);
 
 #define CHAR_BACKSPACE 0x7F
 
@@ -107,6 +109,8 @@ static void find_service(const char * service)
         pt2Function = fan_cmd_off;
     if (strstr(service, "setvoltage") != 0)
         pt2Function = cmd_set_voltage;
+    if (strstr(service, "send") != 0)
+        pt2Function = cmd_send_ipc;
 
 }
 
@@ -182,6 +186,28 @@ static int cmd_set_voltage(void)
 
     int voltage = atoi(param);
     settings_write_settings(voltage);
+    return 0;
+}
+
+static int cmd_send_ipc(void)
+{
+    char *fw = strchr(cmd_input.buffer, ' ');
+    char *bw = strrchr(cmd_input.buffer, ' ');
+    char *param = bw + 1;
+
+    if (fw != bw) {
+        printk("Too many parameters\n");
+        return -1;
+    }
+
+    if (!isdigit(*(fw+1))) {
+        printk("Param not integer [%s]\n", (fw + 1));
+        return -1;
+    }
+
+    struct ipc_slave_t dev;
+    dev.cs_pin = 2;
+    ipc_send(&dev, atoi(param));
     return 0;
 }
 
