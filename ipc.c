@@ -32,9 +32,11 @@ static uint8_t ipc_xfer_byte(uint8_t tx)
 
 void ipc_send(struct ipc_slave_t *slave, uint8_t buf)
 {
+    uint8_t recv;
     IPC_CS_LOW(slave->cs_pin);
     _delay_us(10);
-    ipc_xfer_byte(buf);
+    recv = ipc_xfer_byte(buf);
     _delay_us(20);
     IPC_CS_HIGH(slave->cs_pin);
+    printk("%u\n", SPDR);
 }

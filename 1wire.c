@@ -309,7 +309,7 @@ static uint8_t ow_reset(void)
     DQ_LOW();
     _delay_us(480);
     DQ_HIGH();
-    DQ_DDR = 0;
+    DQ_DDR &= ~(1<<DQ_PIN);
     _delay_us(60);
     if ((DQ_PIN & DQ_MASK) == 0) {
         ret_val = 1;
@@ -320,7 +320,7 @@ static uint8_t ow_reset(void)
 
 static void ow_write_bit(uint8_t bitval)
 {
-    DQ_DDR = 0xff;
+    DQ_DDR |= (1<<DQ_PIN);
     DQ_LOW();
     if(bitval==1) {
         _delay_us(2);
@@ -347,7 +347,7 @@ static uint8_t ow_read_bit(void)
 {
     uint8_t val;
     _delay_us(1);
-    DQ_DDR = 0xff;
+    DQ_DDR |= (1<<DQ_PIN);
     DQ_LOW();
     _delay_us(1);
     DQ_DDR &= ~(1<<DQ_PIN);

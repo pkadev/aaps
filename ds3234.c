@@ -1,8 +1,11 @@
 #include <avr/io.h>
+#include "ipc.h"
 #include <stdint.h>
 #include <util/delay.h>
 #include "uart.h"
 #include "ds3234.h"
+
+
 
 void _swap(uint8_t* data)
 {
@@ -25,7 +28,7 @@ void ds3234_init(void)
      * Enable SPI, Master, set clock rate.
      * ds3234 can run in 4MHz max
      */
-    SPCR = (1<<SPE) | (1<<MSTR) | (1<<CPHA);
+    SPCR = (1<<SPE) /*| (1<<SPIE)*/ | (1<<MSTR) | (1<<SPR1) | (1<<SPR0) | (1<<CPHA);
     CS_HIGH();
 }
 
@@ -33,7 +36,8 @@ static uint8_t ds3234_xfer_byte(uint8_t tx)
 {
     uint8_t val;
     SPDR = tx;
-    SPI_WAIT();
+    if(!(SPCR & (1<<SPIE)))
+        SPI_WAIT();
     val = SPDR;
     return val;
 }
