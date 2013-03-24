@@ -207,7 +207,7 @@ static int cmd_send_ipc(void)
 
     struct ipc_slave_t dev;
     dev.cs_pin = 2;
-    ipc_send(&dev, atoi(param));
+    ipc_send_one(&dev, atoi(param));
     return 0;
 }
 
