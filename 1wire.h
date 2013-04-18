@@ -30,6 +30,8 @@ typedef struct {
 uint8_t ow_num_devices();
 void ow_print_device_addr(ow_device_t *ow_device);
 ow_ret_val_t ow_get_devices(ow_device_t *ow_devices);
+ow_ret_val_t ow_convert_temp_async(ow_device_t *ow_device);
+ow_ret_val_t get_scratch_pad_async(ow_device_t *ow_device, ow_temp_t *ow_temp);
 ow_ret_val_t ow_read_temperature(ow_device_t *ow_device, ow_temp_t *ow_temp);
 ow_ret_val_t ow_read_scratchpad(ow_device_t *rom, ow_scratchpad_t *scratchpad);
 

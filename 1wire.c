@@ -64,6 +64,40 @@ static uint8_t dscrc_table[] = {
       116, 42,200,150, 21, 75,169,247,182,232, 10, 84,215,137,107, 53
 };
 
+ow_ret_val_t ow_convert_temp_async(ow_device_t *ow_device)
+{
+    if (ow_device == NULL) {
+        return OW_RET_FAIL;
+    }
+
+    ow_reset();
+    ow_write_byte(OW_CMD55_MATCH_ROM);
+
+    for (int8_t i=0; i<OW_ROM_BYTE_LEN; i++) {
+        ow_write_byte(ow_device->addr[i]);
+    }
+
+    ow_write_byte(OW_CMD44_CONV_TEMP);
+
+    return OW_RET_OK;
+}
+ow_ret_val_t get_scratch_pad_async(ow_device_t *ow_device, ow_temp_t *ow_temp)
+{
+    while(ow_read_byte() == 0)
+        ;
+
+    ow_scratchpad_t scrpad;
+
+    if (ow_read_scratchpad(ow_device, &scrpad) == OW_RET_OK) {
+        ow_temp->temp = ((scrpad.data[1]&0x7) << 4) & 0x7f;
+        ow_temp->temp |= (scrpad.data[0] & 0xF0) >> 4;
+    //    printk("%u %u %u \n",scrpad.data[1],scrpad.data[0], scrpad.data[0] & 0x0F);
+        ow_temp->dec = _round((scrpad.data[0] & 0x0F) * THERM_DECIMAL_STEPS_12BIT);
+        return OW_RET_OK;
+    }
+    return OW_RET_FAIL;
+}
+
 ow_ret_val_t ow_read_temperature(ow_device_t *ow_device, ow_temp_t *ow_temp)
 {
     if (ow_device == NULL || ow_temp == NULL) {
@@ -80,7 +114,7 @@ ow_ret_val_t ow_read_temperature(ow_device_t *ow_device, ow_temp_t *ow_temp)
 
     ow_write_byte(OW_CMD44_CONV_TEMP);
     while(ow_read_byte() == 0)
-        ;      
+        ;
 
     ow_scratchpad_t scrpad;
 
@@ -90,9 +124,9 @@ ow_ret_val_t ow_read_temperature(ow_device_t *ow_device, ow_temp_t *ow_temp)
     //    printk("%u %u %u \n",scrpad.data[1],scrpad.data[0], scrpad.data[0] & 0x0F);
         ow_temp->dec = _round((scrpad.data[0] & 0x0F) * THERM_DECIMAL_STEPS_12BIT);
         return OW_RET_OK;
-    } 
+    }
     return OW_RET_FAIL;
-}   
+}
 
 ow_ret_val_t ow_get_devices(ow_device_t *ow_devices)
 {

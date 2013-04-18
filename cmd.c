@@ -10,6 +10,7 @@
 #include "1wire.h"
 #include "fan.h"
 #include "settings.h"
+#include "spi.h"
 #include "ipc.h"
 
 
@@ -21,6 +22,7 @@ static void find_service(const char * service);
 /*
  * Functions that can be registered
  */
+static int help(void);
 static int temp_out(void);
 static int volt_out(void);
 static int reboot(void);
@@ -93,6 +95,8 @@ static const char * commands[] = { "temp", "volt_out", "reboot", "fanon", "fanme
 
 static void find_service(const char * service)
 {
+    if (strcmp(service, "help") == 0)
+        pt2Function = help;
     if (strcmp(service, commands[0]) == 0)
         pt2Function = temp_out;
     if (strcmp(service, "volt_out") == 0)
@@ -117,6 +121,12 @@ static void find_service(const char * service)
 /*
  * Functions that can be registered
  */
+static int help(void)
+{
+    printk("%s\n", commands[0]);
+    printk("%s\n", commands[1]);
+    return 0;
+}
 static int volt_out(void)
 {
     printk("Volt: 5.01V\n");
@@ -164,6 +174,7 @@ static int fan_cmd_med2(void)
 
 static int fan_cmd_off(void)
 {
+    printk("Fan is off!\n");
     set_fan_speed(SYS_FAN0, 0);
     return 0;
 }
@@ -205,9 +216,9 @@ static int cmd_send_ipc(void)
         return -1;
     }
 
-    struct ipc_slave_t dev;
+    struct spi_device_t dev;
     dev.cs_pin = 2;
-    ipc_send_one(&dev, atoi(param));
+    spi_send_one(&dev, atoi(param));
     return 0;
 }
 

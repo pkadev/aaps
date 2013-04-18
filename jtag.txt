@@ -1,0 +1,2 @@
+ddd --debugger avr-gdb -x gdb.conf
+sudo avarice --jtag usb --mkII :4242 --jtag-bitrate 500000000

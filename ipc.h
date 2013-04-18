@@ -1,6 +1,7 @@
 #ifndef IPC_H_
 #define IPC_H_
 #include <avr/io.h>
+#include "spi.h"
 
 /* IPC Commands */
 enum ipc_command_t
@@ -20,7 +21,7 @@ struct ipc_data_t
 };
 
 typedef uint8_t periph_type_t;
-
+typedef uint8_t ipc_irq_reason_t;
 typedef enum
 {
     IPC_RET_OK,
@@ -30,13 +31,9 @@ typedef enum
     IPC_RET_ERROR_NOT_SUPPORTED,
 } ipc_ret_t;
 
-struct ipc_slave_t
-{
-    uint8_t cs_pin;
-};
-
-uint8_t ipc_send_one(struct ipc_slave_t *slave, uint8_t buf); //TODO: make this function static and always call wrappers with this function inside them.
-
-ipc_ret_t ipc_periph_detect(struct ipc_slave_t *dev, uint8_t *periph_type);
+ipc_ret_t ipc_get_data_len(struct spi_device_t *dev, uint8_t *len);
+ipc_ret_t ipc_periph_detect(struct spi_device_t *dev, uint8_t *periph_type);
+ipc_ret_t ipc_get_available_data(struct spi_device_t *dev, char *buf, uint8_t len);
+ipc_ret_t ipc_get_irq_reason(struct spi_device_t *dev, ipc_irq_reason_t *irq_reason);
 
 #endif
