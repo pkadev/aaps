@@ -3,20 +3,19 @@
 #include <stdbool.h>
 #include <timer1.h>
 #include <avr/interrupt.h>
-#include "uart.h"
 
-#define TIMER_LOAD_VALUE 0xFFC0
-#define NUM_TIMERS      4
+#define TIMER_LOAD_VALUE    0xFFC1
+#define NUM_TIMERS          4       //Change this if more timers are needed
 
-static uint16_t system_time_ms = 0;
 struct timer_event_t
 {
     int (*callback_function)();
-    unsigned int delay_ms;
-    unsigned int last_triggered;
+    uint32_t delay_ms;
+    uint32_t last_triggered;
     enum timer_event_type_t type;
 };
 
+static uint32_t system_time_ms = 0;
 static struct timer_event_t timer_event_list[NUM_TIMERS];
 
 static void set_timer_register(const unsigned int delay_ms)
@@ -28,13 +27,13 @@ static void set_timer_register(const unsigned int delay_ms)
 ISR(TIMER1_OVF_vect)
 {
     uint8_t i;
-    set_timer_register(TIMER_LOAD_VALUE);
     system_time_ms++;
     for (i = 0; i < NUM_TIMERS; i++) {
         if (timer_event_list[i].callback_function != 0 &&
             timer_event_list[i].last_triggered <= system_time_ms) {
             timer_event_list[i].callback_function();
             timer_event_list[i].last_triggered = system_time_ms;
+
             if (timer_event_list[i].type == ONE_SHOT)
                 timer_event_list[i].callback_function = 0;
             else
@@ -42,6 +41,7 @@ ISR(TIMER1_OVF_vect)
                     timer_event_list[i].delay_ms;
         }
     }
+    set_timer_register(TIMER_LOAD_VALUE);
 }
 
 void timer1_init()
@@ -55,12 +55,16 @@ void timer1_init()
 static bool register_cb(const struct timer_event_t event)
 {
     uint8_t i;
-    for (i = 0; i < NUM_TIMERS; i++) {
-        if (timer_event_list[i].callback_function == NULL) {
+    for (i = 0; i < NUM_TIMERS; i++)
+    {
+        if (timer_event_list[i].callback_function == NULL)
+        {
             timer_event_list[i].callback_function = event.callback_function;
             timer_event_list[i].delay_ms = event.delay_ms;
-            timer_event_list[i].last_triggered = system_time_ms + event.delay_ms;
             timer_event_list[i].type = event.type;
+            timer_event_list[i].last_triggered = system_time_ms +
+                                                 event.delay_ms +
+                                                 event.last_triggered;
 
             return true;
         }
@@ -68,14 +72,14 @@ static bool register_cb(const struct timer_event_t event)
     return false;
 }
 
-bool timer1_create_timer(int (*cb_function)(), unsigned int delay_ms,
-                         enum timer_event_type_t type)
+bool timer1_create_timer(int (*cb_function)(), uint32_t delay_ms,
+                         enum timer_event_type_t type, uint32_t offset)
 {
     struct timer_event_t timer_event =
     {
         .callback_function = cb_function,
         .delay_ms = delay_ms,
-        .last_triggered = 0,
+        .last_triggered = offset,
         .type = type,
     };
 
@@ -83,7 +87,6 @@ bool timer1_create_timer(int (*cb_function)(), unsigned int delay_ms,
         return false;
 
     if (!register_cb(timer_event)) {
-        printk("error registering timer callback\n");
         return false;
     }
 
