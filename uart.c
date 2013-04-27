@@ -50,8 +50,8 @@ void uart_init(void)
     /*
      *  If interrupt is enabled an interrupt vector must be present!
      */
-    UART_BAUD_RATE_REG_LOW = 16;
-    UCSR0B = (1<<RXEN0) | (1<<TXEN0) | (1<<RXCIE0);/* | (1<<TXCIE0)*/
+    UART_BAUD_RATE_REG_LOW = 12;
+    UCSR2B = (1<<RXEN2) | (1<<TXEN2) | (1<<RXCIE2);/* | (1<<TXCIE2)*/
 
     print("\x1B[2J");
     print("\x1B[0;0H");
@@ -63,7 +63,7 @@ void print(char *c)
     while(*c)
     {
       /* Wait for hardware */
-      while ( !( UCSR0A & (1<<UDRE0)) )
+      while ( !( UCSR2A & (1<<UDRE2)) )
         ;
       /* Put data into buffer, sends the data */
       UART_DATA_REG = *c;

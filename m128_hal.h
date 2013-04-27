@@ -25,8 +25,8 @@
 /*
  * UART0 defines
  */
-#define UART_DATA_REG           UDR0
-#define UART_BAUD_RATE_REG_LOW  UBRR0L
+#define UART_DATA_REG           UDR2
+#define UART_BAUD_RATE_REG_LOW  UBRR2L
 
 #define IRQ_FUTUR_PIN 5
 #define IRQ_FUTUR_IN PINE

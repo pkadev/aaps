@@ -8,7 +8,7 @@
 #define RS232_PRINT_BUFFER 80
 
 /*
- * @brief 	initializes uart0
+ * @brief 	initializes uart2
  */
 void uart_init(void);
 

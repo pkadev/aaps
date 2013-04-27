@@ -35,7 +35,7 @@ static int cmd_send_ipc(void);
 
 #define CHAR_BACKSPACE 0x7F
 
-ISR(USART0_RX_vect)
+ISR(USART2_RX_vect)
 {
     char c = UART_DATA_REG;
     if(isalnum(c) || c == 0x0D || c == ' ')
@@ -55,9 +55,9 @@ void ow_print_device_addr(ow_device_t *ow_device)
 {
         printk("%02X %02X %02X %02X %02X %02X %02X %02X \n",
                ow_device->addr[7], ow_device->addr[6],
-               ow_device->addr[5], ow_device->addr[4], 
+               ow_device->addr[5], ow_device->addr[4],
                ow_device->addr[3], ow_device->addr[2],
-               ow_device->addr[1], ow_device->addr[0]); 
+               ow_device->addr[1], ow_device->addr[0]);
 }
 
 void cmd_init(void)
