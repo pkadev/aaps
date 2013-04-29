@@ -8,6 +8,7 @@
 #define SPI_CS_LOW(pin) (PORTE &= ~(1<<pin))
 #define SPI_DUMMY_BYTE 0xCC
 
+/* TODO: Find out if this function should be static. I think it should! /PK 2013-04-28 */
 uint8_t spi_transfer(uint8_t tx)
 {
     SPDR = tx;
@@ -17,13 +18,13 @@ uint8_t spi_transfer(uint8_t tx)
     return SPDR;
 }
 
-uint8_t spi_send_one(struct spi_device_t *slave, uint8_t buf)
+uint8_t spi_send_one(struct spi_device_t *device, uint8_t buf)
 {
     uint8_t recv = 0;
 
-    slave->hw_ch->enable();
+    device->hw_ch->enable();
     recv = spi_transfer(buf);
-    slave->hw_ch->disable();
+    device->hw_ch->disable();
     return recv;
 }
 

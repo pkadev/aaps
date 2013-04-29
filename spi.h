@@ -9,8 +9,9 @@ struct spi_device_t
     uint8_t cs_pin;
     uint8_t cs_port;
     uint8_t speed;
-    void (*enable)(void); 
-    void (*disable)(void); 
+    void (*init)(void);
+    void (*enable)(void);
+    void (*disable)(void);
     struct hw_channel_t *hw_ch;
 };
 
