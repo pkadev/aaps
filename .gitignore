@@ -8,5 +8,6 @@
 *.sym
 *.dep
 *.swp
-cscope.out
+*.out
 cscope.files
+
