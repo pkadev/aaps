@@ -12,7 +12,7 @@ void settings_write_settings(int voltage)
 {
     if (voltage != eeprom_read_word(0)) {
         printk("set votage: %d\n", voltage);
-        eeprom_write_word(NULL, voltage);
+        //eeprom_write_word(NULL, voltage);
     } else {
         printk("Already set\n");
     }
