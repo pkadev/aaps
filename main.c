@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <avr/interrupt.h>
+#include "memtest.h"
 #include "m128_hal.h"
 #include "uart.h"
 #include "timer.h"
@@ -69,6 +70,9 @@ int get_temp(void)
 
 int main(void)
 {
+    /* Enable external SRAM early */
+    XMCRA |= (1<<SRE);
+
     rst_save_reason();
     struct spi_device_t m48;
     m48.cs_pin = 2;
@@ -81,8 +85,6 @@ int main(void)
     DDRE |= (1<<PE2);
     fan_init();
 
-    //XMCRA |= (1<<SRE);
-    //XMCRA |= (1<<SRW01) | (1<<SRW11);
 
     struct rtc_time time;
     STATUS_REGISTER |= (1<<STATUS_REGISTER_IT);
@@ -99,6 +101,7 @@ int main(void)
     uint8_t ctrl_reg = ds3234_read_ctrl_reg();
 
     ds3234_get_time(&time);
+
     printk("%02u%02u%02u %02u:%02u:%02u\n", time.year,
                                             time.month,
                                             time.date,

@@ -60,7 +60,7 @@ TARGET = main
 
 # List C source files here. (C dependencies are automatically generated.)
 SRC = $(TARGET).c uart.c timer.c cmd.c 1wire.c fan.c ds3234.c settings.c ipc.c spi.c hw_channel.c reset.c timer1.c list.c
-
+SRC += memtest.c
 
 # List Assembler source files here.
 #     Make them always end in a capital .S.  Files ending in a lowercase .s
@@ -178,10 +178,9 @@ MATH_LIB = -lm
 # only used for heap (malloc()).
 #EXTMEMOPTS = -Wl,--defsym=__heap_start=0x801100,--defsym=__heap_end=0x80ffff
 
-#EXTMEMOPTS = -Wl,--defsym=__heap_start=0x802200,--defsym=__heap_end=0x8051ff
-#EXTMEMOPTS = -Wl,--defsym=__heap_start=0x802200,--defsym=__heap_end=0x8031ff
-#EXTMEMOPTS = -Wl,--section-start,.data=0x802200,--defsym=__heap_end=0x80a1ff
-
+# 32 KB of external RAM, starting after internal RAM (ATmega128!),
+# only used for heap (malloc()).
+EXTMEMOPTS = -Wl,--defsym=__heap_start=0x802200,--defsym=__heap_end=0x809fff
 
 #---------------- Linker Options ----------------
 #  -Wl,...:     tell GCC to pass this to linker.
