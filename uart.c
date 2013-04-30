@@ -50,7 +50,8 @@ void uart_init(void)
     /*
      *  If interrupt is enabled an interrupt vector must be present!
      */
-    UART_BAUD_RATE_REG_LOW = 12;
+    UART_BAUD_RATE_REG_LOW = 8;
+    UCSR2A |= (1<<U2X2);
     UCSR2B = (1<<RXEN2) | (1<<TXEN2) | (1<<RXCIE2);/* | (1<<TXCIE2)*/
 
     print("\x1B[2J");
