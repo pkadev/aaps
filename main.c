@@ -18,19 +18,8 @@
 #include "hw_channel.h"
 #include "reset.h"
 #include "list.h"
-    ow_device_t *ow_devices;
-uint8_t cmp_pattern(uint8_t *p, uint8_t pattern, size_t size)
-{
-    uint8_t *p_end = (p + size);
-    while(p < p_end) {
-        if(*p != pattern) {
-            printk("Pattern match failed at 0x%x [%x]\n", *p);
-            return -1;
-        }
-        p++;
-    }
-    return 0;
-}
+
+ow_device_t *ow_devices;
 
 volatile uint8_t irq_from_slave = 0;
 
@@ -127,7 +116,7 @@ int main(void)
         printk("Detected peripheral. Type: %u\n", periph_type);
     }
 
-    if (ow_num_sensors) {
+    if (ow_num_sensors || 1) {
         printk("Detected %u 1-Wire devices\n", ow_num_sensors);
         ow_devices = malloc(sizeof(ow_device_t)*ow_num_sensors);
         ow_get_devices(ow_devices);
