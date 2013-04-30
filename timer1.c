@@ -4,8 +4,9 @@
 #include <timer1.h>
 #include <avr/interrupt.h>
 
-#define TIMER_LOAD_VALUE    0xFFC1
-#define NUM_TIMERS          4       //Change this if more timers are needed
+#define TIMER_LOAD_VALUE    0xFFC1 //Applicable for 16MHz
+//#define TIMER_LOAD_VALUE    0xFFE1 //Applicable for 8MHz
+#define NUM_TIMERS          6      //Change this if more timers are needed
 
 struct timer_event_t
 {
