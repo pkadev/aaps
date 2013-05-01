@@ -62,6 +62,7 @@ TARGET = main
 SRC = $(TARGET).c uart.c timer.c cmd.c 1wire.c fan.c ds3234.c settings.c ipc.c spi.c hw_channel.c reset.c timer1.c list.c
 SRC += memtest.c
 SRC += led.c
+SRC += storage.c
 
 # List Assembler source files here.
 #     Make them always end in a capital .S.  Files ending in a lowercase .s

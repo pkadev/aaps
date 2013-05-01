@@ -27,6 +27,11 @@ typedef struct {
 /*
  * Public function for 1-Wire
  */
+
+ow_device_t *ow_devices;
+
+int get_temp(void);
+int trigger_conv_t(void);
 uint8_t ow_num_devices();
 void ow_print_device_addr(ow_device_t *ow_device);
 ow_ret_val_t ow_get_devices(ow_device_t *ow_devices);

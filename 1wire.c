@@ -1,19 +1,21 @@
 #include <stddef.h>
+#include <stdbool.h>
+#include "uart.h"
 #include "1wire.h"
 #include "m128_hal.h"
 
 /*
  * One Wire Command defines
  */
-#define OW_CMDF0_SEARCH_ROM 0xF0
-#define OW_CMD33_READ_ROM 0x33
-#define OW_CMD55_MATCH_ROM 0x55
-#define OW_CMD44_CONV_TEMP 0x44
-#define OW_CMDCC_SKIP_ROM 0xCC
-#define OW_CMDBE_READ_SCRATCHPAD 0xBE
+#define FALSE false
+#define TRUE true
+#define OW_CMDF0_SEARCH_ROM         0xF0
+#define OW_CMD33_READ_ROM           0x33
+#define OW_CMD55_MATCH_ROM          0x55
+#define OW_CMD44_CONV_TEMP          0x44
+#define OW_CMDCC_SKIP_ROM           0xCC
+#define OW_CMDBE_READ_SCRATCHPAD    0xBE
 
-#define FALSE 0
-#define TRUE  1
 #define DQ_PORT PORTG
 #define DQ_DDR DDRG
 #define DQ_PIN 5
@@ -63,6 +65,28 @@ static uint8_t dscrc_table[] = {
       233,183, 85, 11,136,214, 52,106, 43,117,151,201, 74, 20,246,168,
       116, 42,200,150, 21, 75,169,247,182,232, 10, 84,215,137,107, 53
 };
+
+int trigger_conv_t(void)
+{
+    ow_convert_temp_async(&(ow_devices[0]));
+    return 0;
+}
+
+int get_temp(void)
+{
+    ow_temp_t temp;
+    if (get_scratch_pad_async(&(ow_devices[0]), &temp) == OW_RET_OK)
+            printk("Temp: %u.%u°C\n",temp.temp, temp.dec);
+    return 0;
+}
+void ow_print_device_addr(ow_device_t *ow_device)
+{
+        printk("%02X %02X %02X %02X %02X %02X %02X %02X \n",
+               ow_device->addr[7], ow_device->addr[6],
+               ow_device->addr[5], ow_device->addr[4],
+               ow_device->addr[3], ow_device->addr[2],
+               ow_device->addr[1], ow_device->addr[0]);
+}
 
 ow_ret_val_t ow_convert_temp_async(ow_device_t *ow_device)
 {

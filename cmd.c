@@ -51,15 +51,6 @@ ISR(USART2_RX_vect)
     }
 }
 
-void ow_print_device_addr(ow_device_t *ow_device)
-{
-        printk("%02X %02X %02X %02X %02X %02X %02X %02X \n",
-               ow_device->addr[7], ow_device->addr[6],
-               ow_device->addr[5], ow_device->addr[4],
-               ow_device->addr[3], ow_device->addr[2],
-               ow_device->addr[1], ow_device->addr[0]);
-}
-
 void cmd_init(void)
 {
     memset(cmd_input.buffer, 0, CMD_INPUT_BUFFER_SIZE);

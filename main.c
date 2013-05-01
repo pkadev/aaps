@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <avr/interrupt.h>
+#include "led.h"
 #include "memtest.h"
 #include "m128_hal.h"
 #include "uart.h"
@@ -18,8 +19,8 @@
 #include "hw_channel.h"
 #include "reset.h"
 #include "list.h"
+#include "storage.h"
 
-ow_device_t *ow_devices;
 
 volatile uint8_t irq_from_slave = 0;
 
@@ -31,31 +32,29 @@ ISR(INT5_vect) //IRQ from aaps_a
 
 //static struct system_settings sys_settings;
 
-int blink_led2(void)
+int enable_led1(void)
 {
-    printk("LED2 blink\n");
+    led_ctrl(LED1, LED_ON);
     return 0;
 }
 
-int sleep_mode(void)
+int disable_led1(void)
 {
-    printk("No activity for 20 seconds - Entering sleep mode!\n");
+    led_ctrl(LED1, LED_OFF);
+    return 0;
+}
+int enable_led0(void)
+{
+    led_ctrl(LED0, LED_ON);
     return 0;
 }
 
-int trigger_conv_t(void)
+int disable_led0(void)
 {
-    ow_convert_temp_async(&(ow_devices[0]));
+    led_ctrl(LED0, LED_OFF);
     return 0;
 }
 
-int get_temp(void)
-{
-    ow_temp_t temp;
-    if (get_scratch_pad_async(&(ow_devices[0]), &temp) == OW_RET_OK)
-            printk("Temp: %u.%u°C\n",temp.temp, temp.dec);
-    return 0;
-}
 
 int main(void)
 {
@@ -74,7 +73,7 @@ int main(void)
     DDRE |= (1<<PE2);
     fan_init();
 
-
+    led_init();
     struct rtc_time time;
     STATUS_REGISTER |= (1<<STATUS_REGISTER_IT);
     //_delay_ms(1000);
@@ -86,7 +85,7 @@ int main(void)
     struct list_node_t *list_head = list_init();
     if (list_head == NULL)
         printk("Failed to init list\n");
-
+mem_test();
     uint8_t ctrl_reg = ds3234_read_ctrl_reg();
 
     ds3234_get_time(&time);
@@ -124,29 +123,34 @@ int main(void)
         goto fatal;
     }
 
-    //for(uint8_t i=0; i<ow_num_sensors; i++)
-    //    ow_print_device_addr(ow_devices);
+    for(uint8_t i=0; i<ow_num_sensors; i++)
+        ow_print_device_addr(ow_devices);
 
     ow_temp_t temp;
-    //for (uint8_t i=0; i<ow_num_sensors; i++)
-    //{
-    //    if (ow_read_temperature(&(ow_devices[i]), &temp)) {
-    //        printk("Ambient temperature: %u.%u°C\n",temp.temp, temp.dec);
-    //    } else {
-    //        printk("CRC failed\n");
-    //    }
-    //}
+    for (uint8_t i=0; i<ow_num_sensors; i++)
+    {
+        if (ow_read_temperature(&(ow_devices[i]), &temp)) {
+            printk("Ambient temperature: %u.%u°C\n",temp.temp, temp.dec);
+        } else {
+            printk("CRC failed\n");
+        }
+    }
 
     timer1_init();
     temp.temp = 0;
     temp.dec = 0;
 
     ow_convert_temp_async(&(ow_devices[0]));
-    timer1_create_timer(trigger_conv_t, 30000, PERIODIC, 0);
-    timer1_create_timer(get_temp, 30000, PERIODIC, 200);
-    timer1_create_timer(blink_led2, 1, ONE_SHOT, 30000);
-    timer1_create_timer(sleep_mode, 20000, PERIODIC, 0);
-    //timer1_create_timer(test_cb2, 5, ONE_SHOT, 0); //Should not work since timer is already registered
+    timer1_create_timer(trigger_conv_t, 5000, PERIODIC, 0);
+    timer1_create_timer(get_temp, 5000, PERIODIC, 200);
+    timer1_create_timer(enable_led0, 2500, PERIODIC, 0);
+    timer1_create_timer(disable_led0, 2500, PERIODIC, 10);
+    timer1_create_timer(card_detect, 500, PERIODIC, 0);
+    //timer1_create_timer(test_cb2, 5, ONE_SHOT, 0);
+
+    timer1_create_timer(enable_led1, 1500, PERIODIC, 0);
+    timer1_create_timer(disable_led1, 1500, PERIODIC, 100);
+
 
     //int fan_speed = 0;
     uint8_t cnt = 0;
