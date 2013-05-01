@@ -35,6 +35,11 @@ static int cmd_send_ipc(void);
 
 #define CHAR_BACKSPACE 0x7F
 
+struct cmd_list_t {
+    const char *name;
+    int (*func)(void);
+};
+
 ISR(USART2_RX_vect)
 {
     char c = UART_DATA_REG;
@@ -81,32 +86,30 @@ void pending_cmd(void)
         }
     }
 }
-static const char * commands[] = { "temp", "volt_out", "reboot", "fanon", "fanmed",
-                                   "fanmed2", "fanoff", "setvoltage", "getvoltage" };
+
+static struct cmd_list_t cmd_list[] = {
+    { "help", help },
+    { "test", temp_out },
+    { "voltout", volt_out },
+    { "reboot", reboot },
+    { "fanon", fan_cmd_on },
+    { "fanmed", fan_cmd_med },
+    { "fanmed2", fan_cmd_med2 },
+    { "fanoff", fan_cmd_off },
+    { "setvoltage", cmd_set_voltage },
+    { "send", cmd_send_ipc },
+};
 
 static void find_service(const char * service)
 {
-    if (strcmp(service, "help") == 0)
-        pt2Function = help;
-    if (strcmp(service, commands[0]) == 0)
-        pt2Function = temp_out;
-    if (strcmp(service, "volt_out") == 0)
-        pt2Function = volt_out;
-    if (strcmp(service, "reboot") == 0)
-        pt2Function = reboot;
-    if (strcmp(service, "fanon") == 0)
-        pt2Function = fan_cmd_on;
-    if (strcmp(service, "fanmed") == 0)
-        pt2Function = fan_cmd_med;
-    if (strcmp(service, "fanmed2") == 0)
-        pt2Function = fan_cmd_med2;
-    if (strcmp(service, "fanoff") == 0)
-        pt2Function = fan_cmd_off;
-    if (strstr(service, "setvoltage") != 0)
-        pt2Function = cmd_set_voltage;
-    if (strstr(service, "send") != 0)
-        pt2Function = cmd_send_ipc;
+    uint8_t i;
+    size_t list_len = sizeof(cmd_list) / sizeof(cmd_list[0]);
 
+    for (i = 0; i < list_len; i++)
+    {
+        if (strcmp(service, cmd_list[i].name) == 0)
+            pt2Function = cmd_list[i].func;
+    }
 }
 
 /*
@@ -114,10 +117,29 @@ static void find_service(const char * service)
  */
 static int help(void)
 {
-    printk("%s\n", commands[0]);
-    printk("%s\n", commands[1]);
+    uint8_t i;
+    char *name;
+    size_t len;
+    size_t list_len = sizeof(cmd_list) / sizeof(cmd_list[0]);
+
+    for (i = 1; i < list_len; i++)
+    {
+        len = strlen(cmd_list[i].name) + 1 + 1;
+        name = malloc(len);
+
+        if (name) {
+            memcpy(name, cmd_list[i].name, len - 2);
+            name[len-2]  = '\n';
+            name[len-1]  = 0;
+            //printk("Allocated %u bytes\n", len);
+        }
+        printk(name);
+        free(name);
+        name = NULL;
+    }
     return 0;
 }
+
 static int volt_out(void)
 {
     printk("Volt: 5.01V\n");
