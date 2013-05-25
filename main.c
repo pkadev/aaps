@@ -78,12 +78,11 @@ ISR(IRQ_CH12)
 /* END HW dependant */
 
 
-struct spi_device_t aaps_a =
+struct spi_device_t mono_output =
 {
+    .opto_coupled = true,
+    .hw_ch = &hw_ch12,
     .init = init_aaps_a,
-    .enable = enable_aaps_a,
-    .disable = disable_aaps_a,
-    .transfer = aaps_a_transfer,
 };
 
 uint8_t packet0[] =
@@ -113,10 +112,11 @@ int send_packet0(void)
 {
     printk("Packe number: %u\n", packet_counter++);
     uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
+    //uint8_t cnter = 0;
     while(bytes_to_send--)
     {
-        aaps_a_transfer(&(packet0[cnter++]), 1);
+        printk("CP ÅKE\n");
+        //aaps_a_transfer(&(packet0[cnter++]), 1);
     }
     return 0;
 }
@@ -125,9 +125,12 @@ int send_packet1(void)
     printk("Set voltage\n");
     uint8_t bytes_to_send = 5;
     uint8_t cnter = 0;
+    //init_aaps_a();
+    //spi_send_multi(&mono_output, &(packet1[cnter++]), bytes_to_send);
     while(bytes_to_send--)
     {
-        aaps_a_transfer(&(packet1[cnter++]), 1);
+        init_aaps_a();
+        spi_send_one(&mono_output, ~(packet1[cnter++]));
     }
     return 0;
 }
@@ -138,7 +141,8 @@ int send_packet2(void)
     uint8_t cnter = 0;
     while(bytes_to_send--)
     {
-        aaps_a_transfer(&(packet2[cnter++]), 1);
+        init_aaps_a();
+        spi_send_one(&mono_output, ~(packet2[cnter++]));
     }
     return 0;
 }
@@ -210,14 +214,14 @@ int main(void)
         if (irq_from_slave) {
             //Find out why slave is bothering us
             ipc_irq_reason_t rsn;
-            if (ipc_get_irq_reason(&aaps_a, &rsn) == IPC_RET_OK)
+            if (ipc_get_irq_reason(&mono_output, &rsn) == IPC_RET_OK)
             {
                 if (rsn == IPC_CMD_DATA_AVAILABLE)
                 {
-                    char *str;
+                    uint8_t *str;
                     uint8_t len;
 
-                    if (ipc_get_data_len(&aaps_a, &len) == IPC_RET_OK)
+                    if (ipc_get_data_len(&mono_output, &len) == IPC_RET_OK)
                         ;
                     else
                         printk("get len failed\n");
@@ -227,13 +231,13 @@ int main(void)
                     if (str == NULL)
                         printk("Malloc failed\n");
 
-                    if (ipc_get_available_data(&aaps_a, str, len) == IPC_RET_OK) {
+                    if (ipc_get_available_data(&mono_output, str, len) == IPC_RET_OK) {
                         str[len] = '\0';
                     }
                     else
                         printk("get data failed\n");
 
-                    printk(str);
+                    printk((char *)str);
                     free(str);
                 }
             }

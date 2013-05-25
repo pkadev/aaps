@@ -3,6 +3,7 @@
 #include "m128_hal.h"
 #include "aaps_a.h"
 #include "spi.h"
+#include "uart.h"
 
 #define CS_PIN 3
 #define CS_DDR DDRL
@@ -24,8 +25,10 @@ void init_aaps_a(void)
     //SPSR = (1<<SPI2X);
     disable_aaps_a();
 }
+
 void enable_aaps_a(void)
 {
+    printk("enable_aaps_a\n");
     CS_HIGH();
 }
 
@@ -34,12 +37,12 @@ void disable_aaps_a(void)
     CS_LOW();
 }
 
-uint8_t aaps_a_transfer(uint8_t *buf, size_t len)
-{
-    init_aaps_a();
-    uint8_t rx;
-    enable_aaps_a();
-    rx = spi_transfer(~(*buf));
-    disable_aaps_a();
-    return rx;
-}
+//uint8_t aaps_a_transfer(uint8_t *buf, size_t len)
+//{
+//    init_aaps_a();
+//    uint8_t rx;
+//    enable_aaps_a();
+//    rx = spi_transfer(~(*buf));
+//    disable_aaps_a();
+//    return rx;
+//}

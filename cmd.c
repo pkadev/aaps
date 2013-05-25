@@ -144,6 +144,12 @@ static int help(void)
 
 static int current(uint16_t current)
 {
+struct spi_device_t analog =
+{
+    .opto_coupled = true,
+    .hw_ch = &hw_ch12,
+    .init = init_aaps_a,
+};
     uint8_t packet2[] = { IPC_CMD_SET_CURRENT_LIMIT, 0x02, current & 0xff, (current >> 8) & 0xff, 0xbc };
 
     printk("Set current %u\n", 0xffff & current);
@@ -151,7 +157,8 @@ static int current(uint16_t current)
     uint8_t cnter = 0;
     while(bytes_to_send--)
     {
-        aaps_a_transfer(&(packet2[cnter++]), 1);
+        init_aaps_a();
+        spi_send_one(&analog, ~(packet2[cnter++]));
     }
 
     return 0;
@@ -159,6 +166,12 @@ static int current(uint16_t current)
 
 static int voltage(uint16_t voltage)
 {
+struct spi_device_t analog =
+{
+    .opto_coupled = true,
+    .hw_ch = &hw_ch12,
+    .init = init_aaps_a,
+};
     uint32_t convert = (uint32_t)voltage * 100000;
     uint16_t ratio = 57632;
 
@@ -177,7 +190,8 @@ static int voltage(uint16_t voltage)
     uint8_t cnter = 0;
     while(bytes_to_send--)
     {
-        aaps_a_transfer(&(packet1[cnter++]), 1);
+        init_aaps_a();
+        spi_send_one(&analog, ~(packet1[cnter++]));
     }
 
     return 0;
