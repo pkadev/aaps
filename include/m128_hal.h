@@ -5,6 +5,8 @@
  * AVR specific defines 
  */
 
+#define MOSI                                    (PB2)
+#define SCK                                     (PB1)
 
 /*
  * System defines 

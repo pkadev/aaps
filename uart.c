@@ -54,8 +54,8 @@ void uart_init(void)
     UCSR2A |= (1<<U2X2);
     UCSR2B = (1<<RXEN2) | (1<<TXEN2) | (1<<RXCIE2);/* | (1<<TXCIE2)*/
 
-    print("\x1B[2J");
-    print("\x1B[0;0H");
+    //print("\x1B[2J");
+    //print("\x1B[0;0H");
 }
 
 void print(char *c)

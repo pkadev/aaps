@@ -12,32 +12,30 @@
 #include "settings.h"
 #include "spi.h"
 #include "ipc.h"
+#include "aaps_a.h"
 
-
-int (*pt2Function)(void) = 0;
+int (*pt2Function)() = 0;
 static uint8_t initialized = 0;
 static cmd_input_t cmd_input;
 static void find_service(const char * service);
-
+uint16_t param = 0;
 /*
  * Functions that can be registered
  */
 static int help(void);
 static int temp_out(void);
-static int volt_out(void);
+static int voltage(uint16_t voltage);
+static int current(uint16_t current);
 static int reboot(void);
-static int fan_cmd_on(void);
-static int fan_cmd_med(void);
-static int fan_cmd_med2(void);
-static int fan_cmd_off(void);
-static int cmd_set_voltage(void);
+static int fan0_speed(uint16_t speed);
+static int fan1_speed(uint16_t speed);
 static int cmd_send_ipc(void);
 
 #define CHAR_BACKSPACE 0x7F
 
 struct cmd_list_t {
     const char *name;
-    int (*func)(void);
+    int (*func)();
 };
 
 ISR(USART2_RX_vect)
@@ -75,13 +73,13 @@ void pending_cmd(void)
                 find_service(cmd_input.buffer);
 
                 if( pt2Function != 0) {
-                    pt2Function();
+                    pt2Function(param);
                     pt2Function = 0;
                 } else {
                     printk("%s not found\n", cmd_input.buffer);
                 }
                 memset(cmd_input.buffer, 0, CMD_INPUT_BUFFER_SIZE);
-                cmd_input.pos = 0;
+               cmd_input.pos = 0;
             }
         }
     }
@@ -90,13 +88,11 @@ void pending_cmd(void)
 static struct cmd_list_t cmd_list[] = {
     { "help", help },
     { "test", temp_out },
-    { "voltout", volt_out },
+    { "voltage", voltage },
+    { "current", current },
     { "reboot", reboot },
-    { "fanon", fan_cmd_on },
-    { "fanmed", fan_cmd_med },
-    { "fanmed2", fan_cmd_med2 },
-    { "fanoff", fan_cmd_off },
-    { "setvoltage", cmd_set_voltage },
+    { "fan0", fan0_speed },
+    { "fan1", fan1_speed },
     { "send", cmd_send_ipc },
 };
 
@@ -104,6 +100,12 @@ static void find_service(const char * service)
 {
     uint8_t i;
     size_t list_len = sizeof(cmd_list) / sizeof(cmd_list[0]);
+    char *delimiter = strchr(service, ' ');
+
+    if(delimiter) {
+        param = atoi(delimiter+1);
+        *delimiter = 0x00;
+    }
 
     for (i = 0; i < list_len; i++)
     {
@@ -140,9 +142,44 @@ static int help(void)
     return 0;
 }
 
-static int volt_out(void)
+static int current(uint16_t current)
 {
-    printk("Volt: 5.01V\n");
+    uint8_t packet2[] = { IPC_CMD_SET_CURRENT_LIMIT, 0x02, current & 0xff, (current >> 8) & 0xff, 0xbc };
+
+    printk("Set current %u\n", 0xffff & current);
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
+    while(bytes_to_send--)
+    {
+        aaps_a_transfer(&(packet2[cnter++]), 1);
+    }
+
+    return 0;
+}
+
+static int voltage(uint16_t voltage)
+{
+    uint32_t convert = (uint32_t)voltage * 100000;
+    uint16_t ratio = 57632;
+
+    if (voltage > 33000)
+        voltage = 33000;
+    if (voltage == 0)
+        convert = 0;
+
+    convert /= ratio;
+    voltage = convert;
+
+    uint8_t packet1[] = { IPC_CMD_SET_VOLTAGE, 0x02, voltage & 0xff, (voltage >> 8) & 0xff, 0xEF };
+
+    printk("Set voltage %u\n", 0xffff & voltage);
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
+    while(bytes_to_send--)
+    {
+        aaps_a_transfer(&(packet1[cnter++]), 1);
+    }
+
     return 0;
 }
 
@@ -167,71 +204,40 @@ static int reboot(void)
         ;
     return 0;
 }
-static int fan_cmd_on(void)
+
+static int fan0_speed(uint16_t speed)
 {
-    printk("Fan is on!\n");
-    set_fan_speed(SYS_FAN0, 240);
-    return 0;
-}
-static int fan_cmd_med(void)
-{
-    set_fan_speed(SYS_FAN0, 125);
+    printk("FAN0 speed: %u\n", speed);
+    set_fan_speed(SYS_FAN0, speed);
     return 0;
 }
 
-static int fan_cmd_med2(void)
+static int fan1_speed(uint16_t speed)
 {
-    set_fan_speed(SYS_FAN0, 195);
-    return 0;
-}
-
-static int fan_cmd_off(void)
-{
-    printk("Fan is off!\n");
-    set_fan_speed(SYS_FAN0, 0);
-    return 0;
-}
-
-static int cmd_set_voltage(void)
-{
-    char *fw = strchr(cmd_input.buffer, ' ');
-    char *bw = strrchr(cmd_input.buffer, ' ');
-    char *param = bw + 1;
-
-    if (fw != bw) {
-        printk("Too many parameters\n");
-        return -1;
-    }
-
-    if (!isdigit(*(fw+1))) {
-        printk("Param not integer [%s]\n", (fw + 1));
-        return -1;
-    }
-
-    int voltage = atoi(param);
-    settings_write_settings(voltage);
+    printk("FAN1 speed: %u\n", speed);
+    set_fan_speed(SYS_FAN1, speed);
     return 0;
 }
 
 static int cmd_send_ipc(void)
 {
-    char *fw = strchr(cmd_input.buffer, ' ');
-    char *bw = strrchr(cmd_input.buffer, ' ');
-    char *param = bw + 1;
+    //char *fw = strchr(cmd_input.buffer, ' ');
+    //char *bw = strrchr(cmd_input.buffer, ' ');
+    //char *param = bw + 1;
 
-    if (fw != bw) {
-        printk("Too many parameters\n");
-        return -1;
-    }
+    //if (fw != bw) {
+    //    printk("Too many parameters\n");
+    //    return -1;
+    //}
 
-    if (!isdigit(*(fw+1))) {
-        printk("Param not integer [%s]\n", (fw + 1));
-        return -1;
-    }
+    //if (!isdigit(*(fw+1))) {
+    //    printk("Param not integer [%s]\n", (fw + 1));
+    //    return -1;
+    //}
 
-    struct spi_device_t dev;
-    dev.cs_pin = 2;
-    spi_send_one(&dev, atoi(param));
+    //struct spi_device_t dev;
+    //dev.cs_pin = 2;
+    //spi_send_one(&dev, atoi(param));
     return 0;
 }
 

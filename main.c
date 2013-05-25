@@ -20,13 +20,14 @@
 #include "reset.h"
 #include "list.h"
 #include "storage.h"
-
+#include "spi.h"
+#include "aaps_a.h"
 
 volatile uint8_t irq_from_slave = 0;
 
 ISR(INT5_vect) //IRQ from aaps_a
 {
-    //printk("irq - periph!\n");
+    printk("irq - periph!\n");
     irq_from_slave = 1;
 }
 
@@ -54,129 +55,169 @@ int disable_led0(void)
     led_ctrl(LED0, LED_OFF);
     return 0;
 }
+#define IRQ_CH12 PCINT1_vect
+
+ISR(IRQ_CH12)
+{
+    if (!(PINJ & (1<<PJ1))) {
+        irq_from_slave = 1;
+        //printk("IRQ from CH12\n");
+    }
+}
+
+/*
+ * Static functions for aaps_a that
+ * should move to HW dependant file
+ */
+/* Below defines should be made global
+ * or at least available generically for the ones that need it
+ */
+/* Above defines should be made global
+ * or at least available generically for the ones that need it
+ */
+/* END HW dependant */
 
 
+struct spi_device_t aaps_a =
+{
+    .init = init_aaps_a,
+    .enable = enable_aaps_a,
+    .disable = disable_aaps_a,
+    .transfer = aaps_a_transfer,
+};
+
+uint8_t packet0[] =
+{
+    0x01, 0x02, 0xDA, 0x7A, 0x42,
+};
+#define MAX_VOLTAGE 0xdb0f //Approximately calibrated max voltage
+uint8_t packet1[] =
+{
+    IPC_CMD_SET_VOLTAGE,
+    0x02,
+    0x59,
+    0x16,
+    0xEF,
+};
+
+uint8_t packet2[] =
+{
+    IPC_CMD_SET_CURRENT_LIMIT,
+    0x02,
+    0xff,
+    0xf4,
+    0xbc,
+};
+static int packet_counter = 0;
+int send_packet0(void)
+{
+    printk("Packe number: %u\n", packet_counter++);
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
+    while(bytes_to_send--)
+    {
+        aaps_a_transfer(&(packet0[cnter++]), 1);
+    }
+    return 0;
+}
+int send_packet1(void)
+{
+    printk("Set voltage\n");
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
+    while(bytes_to_send--)
+    {
+        aaps_a_transfer(&(packet1[cnter++]), 1);
+    }
+    return 0;
+}
+int send_packet2(void)
+{
+    printk("Set current\n");
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
+    while(bytes_to_send--)
+    {
+        aaps_a_transfer(&(packet2[cnter++]), 1);
+    }
+    return 0;
+}
 int main(void)
 {
     /* Enable external SRAM early */
     XMCRA |= (1<<SRE);
 
-    rst_save_reason();
-    struct spi_device_t m48;
-    m48.cs_pin = 2;
-    uint8_t periph_type = 0;
-    ipc_ret_t ret = IPC_RET_ERROR_GENERIC;
-    wdt_enable(WDTO_4S);
-    hw_init();
-    m48.hw_ch = &(system_channels[0]);
+    DDRL |= (1<<PL3);
 
+    rst_save_reason();
+    led_init();
+    //wdt_enable(WDTO_4S);
+    hw_init();
+
+    uint8_t ow_num_sensors = ow_num_devices();
+    ow_devices = malloc(sizeof(ow_device_t)*ow_num_sensors);
+    ow_get_devices(ow_devices);
+    //ow_convert_temp_async(&(ow_devices[0]));
     DDRE |= (1<<PE2);
     fan_init();
 
-    led_init();
-    struct rtc_time time;
     STATUS_REGISTER |= (1<<STATUS_REGISTER_IT);
-    //_delay_ms(1000);
+
     uart_init();
     rst_print_reason();
     cmd_init();
     timer_init();
     ds3234_init();
-    struct list_node_t *list_head = list_init();
-    if (list_head == NULL)
-        printk("Failed to init list\n");
-mem_test();
-    uint8_t ctrl_reg = ds3234_read_ctrl_reg();
+    timer1_init();
 
-    ds3234_get_time(&time);
+    ow_print_device_addr(&(ow_devices[0]));
+    /* PCINT10 from CH12 */
+    PCMSK1 |= (1<< PCINT10);
+    PCICR |= (1<<PCIE1);
 
-    printk("%02u%02u%02u %02u:%02u:%02u\n", time.year,
-                                            time.month,
-                                            time.date,
-                                            time.hour,
-                                            time.min,
-                                            time.sec);
+//mem_test();
 
     /* Configure IRQ pin from 'futur' periph */
     EICRB |= (1<<ISC51) | (1<<ISC50);
     EIMSK |= (1<<INT5);
     /* End Configure IRQ */
-    uint8_t ow_num_sensors = ow_num_devices();
-    //settings_get_settings(&sys_settings);
+    printk("Found %u sensors\n", ow_num_sensors);
+    //temp.temp = 0;
+    //temp.dec = 0;
 
-#define DBG(x) x
-    printk("reg: 0x%x\n", ctrl_reg);
-    ds3234_write_reg(0x8e, 0x00);
-    DBG(printk("reg: 0x%x\n", ds3234_read_ctrl_reg());)
-    ret = ipc_periph_detect(&m48, &periph_type);
-    if (ret != IPC_RET_OK) {
-        printk("Error: 0x%x\n", ret);
-    } else {
-        printk("Detected peripheral. Type: %u\n", periph_type);
-    }
 
-    if (ow_num_sensors || 1) {
-        printk("Detected %u 1-Wire devices\n", ow_num_sensors);
-        ow_devices = malloc(sizeof(ow_device_t)*ow_num_sensors);
-        ow_get_devices(ow_devices);
-    } else {
-        goto fatal;
-    }
-
-    for(uint8_t i=0; i<ow_num_sensors; i++)
-        ow_print_device_addr(ow_devices);
-
-    ow_temp_t temp;
-    for (uint8_t i=0; i<ow_num_sensors; i++)
-    {
-        if (ow_read_temperature(&(ow_devices[i]), &temp)) {
-            printk("Ambient temperature: %u.%u°C\n",temp.temp, temp.dec);
-        } else {
-            printk("CRC failed\n");
-        }
-    }
-
-    timer1_init();
-    temp.temp = 0;
-    temp.dec = 0;
-
-    ow_convert_temp_async(&(ow_devices[0]));
-    timer1_create_timer(trigger_conv_t, 5000, PERIODIC, 0);
-    timer1_create_timer(get_temp, 5000, PERIODIC, 200);
-    timer1_create_timer(enable_led0, 2500, PERIODIC, 0);
-    timer1_create_timer(disable_led0, 2500, PERIODIC, 10);
-    timer1_create_timer(card_detect, 500, PERIODIC, 0);
-    //timer1_create_timer(test_cb2, 5, ONE_SHOT, 0);
-
-    timer1_create_timer(enable_led1, 1500, PERIODIC, 0);
-    timer1_create_timer(disable_led1, 1500, PERIODIC, 100);
+    timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
+    timer1_create_timer(get_temp, 10000, PERIODIC, 200);
+    //timer1_create_timer(card_detect, 500, PERIODIC, 0);
+//    timer1_create_timer(send_packet0, 150, PERIODIC, 2000);
+//    timer1_create_timer(send_packet1, 210, PERIODIC, 2100);
+    timer1_create_timer(send_packet2, 2000, ONE_SHOT, 0 );
+    timer1_create_timer(send_packet1, 2000, ONE_SHOT, 1000);
+//    timer1_create_timer(send_packet1, 1000, ONE_SHOT, 6000);
+//    timer1_create_timer(send_packet0, 1000, ONE_SHOT, 5000);
+//    timer1_create_timer(send_packet1, 1000, ONE_SHOT, 4000);
+//    timer1_create_timer(send_packet2, 1000, ONE_SHOT, 3000);
+//    timer1_create_timer(send_packet1, 1000, ONE_SHOT, 2000);
 
 
     //int fan_speed = 0;
     uint8_t cnt = 0;
+
     while(1)
     {
-        printk("Entering main loop\n");
-        while(1) {
-            pending_cmd();
-            wdt_reset();
-        }
-    //ctrl_reg = ds3234_read_ctrl_reg();
-    //printk("reg: 0x%x\n", ctrl_reg);
-        //ipc_send(&m48, cnt);
         cnt++;
-
+        pending_cmd();
         if (irq_from_slave) {
             //Find out why slave is bothering us
             ipc_irq_reason_t rsn;
-            if (ipc_get_irq_reason(&m48, &rsn) == IPC_RET_OK)
+            if (ipc_get_irq_reason(&aaps_a, &rsn) == IPC_RET_OK)
             {
-                if (rsn == 0x10)
+                if (rsn == IPC_CMD_DATA_AVAILABLE)
                 {
                     char *str;
                     uint8_t len;
 
-                    if (ipc_get_data_len(&m48, &len) == IPC_RET_OK)
+                    if (ipc_get_data_len(&aaps_a, &len) == IPC_RET_OK)
                         ;
                     else
                         printk("get len failed\n");
@@ -186,7 +227,7 @@ mem_test();
                     if (str == NULL)
                         printk("Malloc failed\n");
 
-                    if (ipc_get_available_data(&m48, str, len) == IPC_RET_OK) {
+                    if (ipc_get_available_data(&aaps_a, str, len) == IPC_RET_OK) {
                         str[len] = '\0';
                     }
                     else
@@ -199,7 +240,7 @@ mem_test();
             irq_from_slave = 0;
         }
     }
-fatal:
+//fatal:
     printk("Fatal error!\n");
     while(1);
 

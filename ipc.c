@@ -21,7 +21,7 @@ ipc_ret_t ipc_get_irq_reason(struct spi_device_t *dev, ipc_irq_reason_t *irq_rea
     if (dev == NULL || irq_reason == NULL)
         return IPC_RET_ERROR_BAD_PARAMS;
 
-    *irq_reason = spi_send_one(dev, IPC_DUMMY_BYTE);
+    *irq_reason = spi_send_one1(dev, IPC_DUMMY_BYTE);
 
     EIFR |= (1<<INTF5);//TODO: Platform dependant! Remove!!
     EIMSK |= (1<<INT5);//TODO: Platform dependant! Remove!!
@@ -38,7 +38,7 @@ ipc_ret_t ipc_get_data_len(struct spi_device_t *dev, uint8_t *len)
     EIMSK &= ~(1<<INT5); //TODO: Platform dependant! Remove!!
 
     /* Get available data length */
-    *len = spi_send_one(dev, IPC_DUMMY_BYTE);
+    *len = spi_send_one1(dev, IPC_DUMMY_BYTE);
 
     EIFR |= (1<<INTF5);//TODO: Platform dependant! Remove!!
     EIMSK |= (1<<INT5);//TODO: Platform dependant! Remove!!
@@ -54,7 +54,7 @@ ipc_ret_t ipc_get_available_data(struct spi_device_t *dev, char *buf, uint8_t le
         return IPC_RET_ERROR_BAD_PARAMS;
 
     EIMSK &= ~(1<<INT5); //TODO: Platform dependant! Remove!!
-    spi_send_multi(dev, buf, len);
+    spi_send_multi1(dev, buf, len);
     ret = IPC_RET_OK;
     EIFR |= (1<<INTF5);//TODO: Platform dependant! Remove!!
     EIMSK |= (1<<INT5);//TODO: Platform dependant! Remove!!
