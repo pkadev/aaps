@@ -9,5 +9,7 @@
 *.dep
 *.swp
 *.out
+Debug/*
+Release/*
 cscope.files
 
