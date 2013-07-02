@@ -1,15 +1,18 @@
 #ifndef HW_CHANNEL_H__
 #define HW_CHANNEL_H__
 
+#include "stdbool.h"
+
 struct hw_channel_t
 {
     volatile uint8_t *port; //Probably not needed
     volatile uint8_t *ddr; //Probably not needed
     uint8_t cs_pin; //Probably not needed
+    bool opto;
 };
 
 void hw_init(void);
-
-extern struct hw_channel_t system_channel;
-extern struct hw_channel_t hw_ch12;
+#define HW_NBR_OF_CHANNELS  14
+extern struct hw_channel_t *system_channel[HW_NBR_OF_CHANNELS];
+extern volatile uint8_t irq_from_slave;
 #endif

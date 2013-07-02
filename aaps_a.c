@@ -5,44 +5,31 @@
 #include "spi.h"
 #include "uart.h"
 
-#define CS_PIN 3
-#define CS_DDR DDRL
-#define CS_PORT PORTL
-#define CS_LOW() (CS_PORT &= ~(1<<CS_PIN))
-#define CS_HIGH() (CS_PORT |= (1<<CS_PIN))
+static void disable_aaps_a(struct hw_channel_t *ch)
+{
+    if(ch->opto)
+    {
+        *(ch->port) &= ~(1 << ch->cs_pin);
+    }
+    else
+    {
+        *(ch->port) |= (1 << ch->cs_pin);
+    }
+}
 
-void init_aaps_a(void)
+void init_aaps_a(struct hw_channel_t *ch)
 {
     /* Set MOSI, CS and SCK output */
     DDRB |= (1<<MOSI) | (1<<SCK);
-    CS_DDR |= (1<<CS_PIN);
     DDRB |= (1<<PB0);
+
+    /* Set CS pin as output */
+    *(ch->ddr) |= (1<<ch->cs_pin);
 
     /*
      * Enable SPI, Master, set clock rate.
      */
     SPCR = (1<<SPE) | (1<<MSTR) | (1<<SPR1);
     //SPSR = (1<<SPI2X);
-    disable_aaps_a();
+    disable_aaps_a(ch);
 }
-
-void enable_aaps_a(void)
-{
-    printk("enable_aaps_a\n");
-    CS_HIGH();
-}
-
-void disable_aaps_a(void)
-{
-    CS_LOW();
-}
-
-//uint8_t aaps_a_transfer(uint8_t *buf, size_t len)
-//{
-//    init_aaps_a();
-//    uint8_t rx;
-//    enable_aaps_a();
-//    rx = spi_transfer(~(*buf));
-//    disable_aaps_a();
-//    return rx;
-//}

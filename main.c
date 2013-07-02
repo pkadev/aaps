@@ -23,14 +23,6 @@
 #include "spi.h"
 #include "aaps_a.h"
 
-volatile uint8_t irq_from_slave = 0;
-
-ISR(INT5_vect) //IRQ from aaps_a
-{
-    printk("irq - periph!\n");
-    irq_from_slave = 1;
-}
-
 //static struct system_settings sys_settings;
 
 int enable_led1(void)
@@ -44,6 +36,7 @@ int disable_led1(void)
     led_ctrl(LED1, LED_OFF);
     return 0;
 }
+
 int enable_led0(void)
 {
     led_ctrl(LED0, LED_ON);
@@ -55,33 +48,11 @@ int disable_led0(void)
     led_ctrl(LED0, LED_OFF);
     return 0;
 }
-#define IRQ_CH12 PCINT1_vect
-
-ISR(IRQ_CH12)
-{
-    if (!(PINJ & (1<<PJ1))) {
-        irq_from_slave = 1;
-        //printk("IRQ from CH12\n");
-    }
-}
-
-/*
- * Static functions for aaps_a that
- * should move to HW dependant file
- */
-/* Below defines should be made global
- * or at least available generically for the ones that need it
- */
-/* Above defines should be made global
- * or at least available generically for the ones that need it
- */
-/* END HW dependant */
-
 
 struct spi_device_t mono_output =
 {
-    .opto_coupled = true,
-    .hw_ch = &hw_ch12,
+    //.opto_coupled = true,
+    //.hw_ch = system_channel[0],
     .init = init_aaps_a,
 };
 
@@ -107,33 +78,23 @@ uint8_t packet2[] =
     0xf4,
     0xbc,
 };
-static int packet_counter = 0;
-int send_packet0(void)
-{
-    printk("Packe number: %u\n", packet_counter++);
-    uint8_t bytes_to_send = 5;
-    //uint8_t cnter = 0;
-    while(bytes_to_send--)
-    {
-        printk("CP ÅKE\n");
-        //aaps_a_transfer(&(packet0[cnter++]), 1);
-    }
-    return 0;
-}
+
+/* Temporary debug function */
 int send_packet1(void)
 {
     printk("Set voltage\n");
     uint8_t bytes_to_send = 5;
     uint8_t cnter = 0;
-    //init_aaps_a();
-    //spi_send_multi(&mono_output, &(packet1[cnter++]), bytes_to_send);
+
     while(bytes_to_send--)
     {
-        init_aaps_a();
+        init_aaps_a(mono_output.hw_ch);
         spi_send_one(&mono_output, ~(packet1[cnter++]));
     }
     return 0;
 }
+
+/* Temporary debug function */
 int send_packet2(void)
 {
     printk("Set current\n");
@@ -141,23 +102,22 @@ int send_packet2(void)
     uint8_t cnter = 0;
     while(bytes_to_send--)
     {
-        init_aaps_a();
+        init_aaps_a(mono_output.hw_ch);
         spi_send_one(&mono_output, ~(packet2[cnter++]));
     }
     return 0;
 }
+
 int main(void)
 {
     /* Enable external SRAM early */
     XMCRA |= (1<<SRE);
 
-    DDRL |= (1<<PL3);
-
     rst_save_reason();
     led_init();
     //wdt_enable(WDTO_4S);
     hw_init();
-
+mono_output.hw_ch = system_channel[0];
     uint8_t ow_num_sensors = ow_num_devices();
     ow_devices = malloc(sizeof(ow_device_t)*ow_num_sensors);
     ow_get_devices(ow_devices);
@@ -177,14 +137,12 @@ int main(void)
     ow_print_device_addr(&(ow_devices[0]));
     /* PCINT10 from CH12 */
     PCMSK1 |= (1<< PCINT10);
+    ///* PCINT11 from CH13 */
+    //PCMSK1 |= (1<< PCINT11);
     PCICR |= (1<<PCIE1);
 
 //mem_test();
 
-    /* Configure IRQ pin from 'futur' periph */
-    EICRB |= (1<<ISC51) | (1<<ISC50);
-    EIMSK |= (1<<INT5);
-    /* End Configure IRQ */
     printk("Found %u sensors\n", ow_num_sensors);
     //temp.temp = 0;
     //temp.dec = 0;
@@ -204,7 +162,6 @@ int main(void)
 //    timer1_create_timer(send_packet1, 1000, ONE_SHOT, 2000);
 
 
-    //int fan_speed = 0;
     uint8_t cnt = 0;
 
     while(1)

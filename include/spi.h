@@ -8,8 +8,8 @@
 struct spi_device_t
 {
     uint8_t speed;
-    bool opto_coupled;
-    void (*init)(void);
+    //bool opto_coupled;
+    void (*init)();
     uint8_t (*transfer)(uint8_t *buf, size_t len);
     struct hw_channel_t *hw_ch;
 };
