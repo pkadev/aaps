@@ -49,13 +49,34 @@ int disable_led0(void)
     return 0;
 }
 
-struct spi_device_t mono_output =
+struct spi_device_t analog_zero =
+{
+    //.opto_coupled = true,
+    //.hw_ch = system_channel[0],
+    .init = init_aaps_a,
+};
+struct spi_device_t analog_one =
 {
     //.opto_coupled = true,
     //.hw_ch = system_channel[0],
     .init = init_aaps_a,
 };
 
+/* TODO: This function must be made more dynamic 
+ * and moved to proper source file.
+ * Lookup of spi channels can't be hard coded.
+ */
+struct spi_device_t *channel_lookup(uint8_t ch)
+{
+    switch(ch)
+    {
+        case 0: { return &analog_zero; break; }
+        case 1: { return &analog_one; break; }
+        default:
+            printk("Error. No such channel [%u]\n", ch);
+    }
+    return NULL;
+}
 uint8_t packet0[] =
 {
     0x01, 0x02, 0xDA, 0x7A, 0x42,
@@ -88,8 +109,8 @@ int send_packet1(void)
 
     while(bytes_to_send--)
     {
-        init_aaps_a(mono_output.hw_ch);
-        spi_send_one(&mono_output, ~(packet1[cnter++]));
+        init_aaps_a(analog_zero.hw_ch);
+        spi_send_one(&analog_zero, ~(packet1[cnter++]));
     }
     return 0;
 }
@@ -102,8 +123,8 @@ int send_packet2(void)
     uint8_t cnter = 0;
     while(bytes_to_send--)
     {
-        init_aaps_a(mono_output.hw_ch);
-        spi_send_one(&mono_output, ~(packet2[cnter++]));
+        init_aaps_a(analog_zero.hw_ch);
+        spi_send_one(&analog_zero, ~(packet2[cnter++]));
     }
     return 0;
 }
@@ -117,7 +138,11 @@ int main(void)
     led_init();
     //wdt_enable(WDTO_4S);
     hw_init();
-mono_output.hw_ch = system_channel[0];
+
+    //TODO: Channel initialization can't be hard coded like this
+    analog_zero.hw_ch = system_channel[0];
+    analog_one.hw_ch = system_channel[1];
+
     uint8_t ow_num_sensors = ow_num_devices();
     ow_devices = malloc(sizeof(ow_device_t)*ow_num_sensors);
     ow_get_devices(ow_devices);
@@ -136,10 +161,10 @@ mono_output.hw_ch = system_channel[0];
 
     ow_print_device_addr(&(ow_devices[0]));
     /* PCINT10 from CH12 */
-    PCMSK1 |= (1<< PCINT10);
+    //PCMSK1 |= (1<< PCINT10);
     ///* PCINT11 from CH13 */
     //PCMSK1 |= (1<< PCINT11);
-    PCICR |= (1<<PCIE1);
+    //PCICR |= (1<<PCIE1);
 
 //mem_test();
 
@@ -151,16 +176,18 @@ mono_output.hw_ch = system_channel[0];
     timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
     timer1_create_timer(get_temp, 10000, PERIODIC, 200);
     //timer1_create_timer(card_detect, 500, PERIODIC, 0);
-//    timer1_create_timer(send_packet0, 150, PERIODIC, 2000);
 //    timer1_create_timer(send_packet1, 210, PERIODIC, 2100);
     timer1_create_timer(send_packet2, 2000, ONE_SHOT, 0 );
     timer1_create_timer(send_packet1, 2000, ONE_SHOT, 1000);
 //    timer1_create_timer(send_packet1, 1000, ONE_SHOT, 6000);
-//    timer1_create_timer(send_packet0, 1000, ONE_SHOT, 5000);
 //    timer1_create_timer(send_packet1, 1000, ONE_SHOT, 4000);
-//    timer1_create_timer(send_packet2, 1000, ONE_SHOT, 3000);
-//    timer1_create_timer(send_packet1, 1000, ONE_SHOT, 2000);
 
+    /* Detect peripherals */
+//    uint8_t periph_type;
+//    for (uint8_t i = 0; i < HW_NBR_OF_CHANNELS; i++) {
+//        if (ipc_periph_detect(&analog_zero, &periph_type) != IPC_RET_OK)
+//        printk("Error detecting peripherals\n");
+  //  }
 
     uint8_t cnt = 0;
 
@@ -168,17 +195,20 @@ mono_output.hw_ch = system_channel[0];
     {
         cnt++;
         pending_cmd();
-        if (irq_from_slave) {
+        if (irq_from_slave != NO_IRQ) {
+            //printk("irq_from_slave is %u\n", irq_from_slave);
             //Find out why slave is bothering us
             ipc_irq_reason_t rsn;
-            if (ipc_get_irq_reason(&mono_output, &rsn) == IPC_RET_OK)
+             /* Do the lookup up of channels properly */
+
+            if (ipc_get_irq_reason(channel_lookup(irq_from_slave), &rsn) == IPC_RET_OK)
             {
                 if (rsn == IPC_CMD_DATA_AVAILABLE)
                 {
                     uint8_t *str;
                     uint8_t len;
 
-                    if (ipc_get_data_len(&mono_output, &len) == IPC_RET_OK)
+                    if (ipc_get_data_len(channel_lookup(irq_from_slave), &len) == IPC_RET_OK)
                         ;
                     else
                         printk("get len failed\n");
@@ -188,7 +218,7 @@ mono_output.hw_ch = system_channel[0];
                     if (str == NULL)
                         printk("Malloc failed\n");
 
-                    if (ipc_get_available_data(&mono_output, str, len) == IPC_RET_OK) {
+                    if (ipc_get_available_data(channel_lookup(irq_from_slave), str, len) == IPC_RET_OK) {
                         str[len] = '\0';
                     }
                     else
@@ -198,7 +228,7 @@ mono_output.hw_ch = system_channel[0];
                     free(str);
                 }
             }
-            irq_from_slave = 0;
+            irq_from_slave = NO_IRQ;
         }
     }
 //fatal:

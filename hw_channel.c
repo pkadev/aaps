@@ -18,8 +18,7 @@
 #define IRQ_CH11 INT3_vect
 #define IRQ_CH12 PCINT1_vect
 #define IRQ_CH13 PCINT1_vect
-
-volatile uint8_t irq_from_slave = 0;
+volatile uint8_t irq_from_slave = NO_IRQ; //No channel
 
 ISR(IRQ_CH00)
 {
@@ -40,24 +39,24 @@ ISR(IRQ_CH02)
 
 ISR(IRQ_CH10)
 {
-//    printk("irq - CH08\n");
+    //printk("irq - CH10\n");
     irq_from_slave = 1;
 }
 ISR(IRQ_CH08)
 {
- //   printk("irq - CH10\n");
-    irq_from_slave = 1;
+    //printk("irq - CH08\n");
+    irq_from_slave = 0; //Set position in system_channels[]
 }
 
 ISR(IRQ_CH12)
 {
     if (!(PINJ & (1<<PJ1))) {
-        irq_from_slave = 1;
+        irq_from_slave = 12;
 //        printk("IRQ from CH12\n");
     }
 }
 
-//CON13
+//CONxx
 struct hw_channel_t hw_ch03 =
 {
     .port = &PORTE,
@@ -102,15 +101,15 @@ struct hw_channel_t hw_ch13 =
 
 void hw_init(void)
 {
-    uint8_t i;
-    for(i = 0; i < HW_NBR_OF_CHANNELS; i++) {
-        if (system_channel[i] != NULL)
-            printk("Detecting channel %u\n", i);
-    }
+
+    /* TODO: Enabling of IRQ/CH must be related to which
+     * channels are in use and if a physical peripheral board
+     * connect to it.
+     */
     /* Configure IRQ for connected channels */
 //  EICRB |= (1<<ISC51) | (1<<ISC50);
     EICRA |= (1<<ISC01) | (1<<ISC21);
-    EIMSK |= (1<<INT0) | (1 << INT2);
+    EIMSK |= /*(1<<INT0) |*/ (1 << INT2);
     /* End Configure IRQ */
     //system_channel = hw_ch12;
 }

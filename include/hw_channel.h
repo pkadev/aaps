@@ -13,6 +13,7 @@ struct hw_channel_t
 
 void hw_init(void);
 #define HW_NBR_OF_CHANNELS  14
+#define NO_IRQ 0xFF
 extern struct hw_channel_t *system_channel[HW_NBR_OF_CHANNELS];
 extern volatile uint8_t irq_from_slave;
 #endif

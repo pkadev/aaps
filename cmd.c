@@ -19,13 +19,14 @@ static uint8_t initialized = 0;
 static cmd_input_t cmd_input;
 static void find_service(const char * service);
 uint16_t param = 0;
+struct spi_device_t *dev = 0;
 /*
  * Functions that can be registered
  */
 static int help(void);
 static int temp_out(void);
-static int voltage(uint16_t voltage);
-static int current(uint16_t current);
+static int voltage(uint16_t voltage, struct spi_device_t *dev);
+static int current(uint16_t current, struct spi_device_t *dev);
 static int reboot(void);
 static int fan0_speed(uint16_t speed);
 static int fan1_speed(uint16_t speed);
@@ -73,7 +74,7 @@ void pending_cmd(void)
                 find_service(cmd_input.buffer);
 
                 if( pt2Function != 0) {
-                    pt2Function(param);
+                    pt2Function(param, dev);
                     pt2Function = 0;
                 } else {
                     printk("%s not found\n", cmd_input.buffer);
@@ -105,6 +106,24 @@ static void find_service(const char * service)
     if(delimiter) {
         param = atoi(delimiter+1);
         *delimiter = 0x00;
+
+        /* Check if command has a channel as
+         * additional parameter
+         */
+        delimiter = strchr(delimiter + 1, ' ');
+        if(delimiter) {
+
+            /* TODO: This lookup must be done in
+             * some other way
+             */
+            /* TODO: This is a bug if this doesn't convert
+             * to a integer within numver of available
+             * channels.
+             */
+            dev = channel_lookup(atoi(delimiter+1));
+        } else {
+            dev = NULL;
+        }
     }
 
     for (i = 0; i < list_len; i++)
@@ -142,27 +161,35 @@ static int help(void)
     return 0;
 }
 
-static int current(uint16_t current)
+static int current(uint16_t current, struct spi_device_t *dev)
 {
     uint8_t packet2[] = { IPC_CMD_SET_CURRENT_LIMIT, 0x02, current & 0xff, (current >> 8) & 0xff, 0xbc };
 
+    if (dev == NULL) {
+        printk("NULL device. Failed to set current.\n");
+        return -1;
+    }
     printk("Set current %u\n", 0xffff & current);
     uint8_t bytes_to_send = 5;
     uint8_t cnter = 0;
     while(bytes_to_send--)
     {
-        init_aaps_a(system_channel[0]);
-        spi_send_one(&mono_output, ~(packet2[cnter++]));
+        init_aaps_a(dev->hw_ch);
+        spi_send_one(dev, ~(packet2[cnter++]));
     }
-
+    dev = NULL;
     return 0;
 }
 
-static int voltage(uint16_t voltage)
+static int voltage(uint16_t voltage, struct spi_device_t *dev)
 {
     uint32_t convert = (uint32_t)voltage * 100000;
     uint16_t ratio = 57632;
 
+    if (dev == NULL) {
+        printk("NULL device. Failed to set voltage.\n");
+        return -1;
+    }
     if (voltage > 33000)
         voltage = 33000;
     if (voltage == 0)
@@ -178,10 +205,10 @@ static int voltage(uint16_t voltage)
     uint8_t cnter = 0;
     while(bytes_to_send--)
     {
-        init_aaps_a(system_channel[0]);
-        spi_send_one(&mono_output, ~(packet1[cnter++]));
+        init_aaps_a(dev->hw_ch);
+        spi_send_one(dev, ~(packet1[cnter++]));
     }
-
+    dev = NULL;
     return 0;
 }
 

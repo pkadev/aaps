@@ -7,12 +7,13 @@
 #include "m128_hal.h"
 #include <stdlib.h>
 #include <spi.h>
+#include "aaps_a.h"
 
 #define IPC_DUMMY_BYTE 0xff
 
 volatile uint8_t spi_data_buf = 0;
 
-static ipc_ret_t ipc_cmd_invoke(struct spi_device_t *dev, enum ipc_command_t cmd);
+//static ipc_ret_t ipc_cmd_invoke(struct spi_device_t *dev, enum ipc_command_t cmd);
 static void suspend_irq(void)
 {
    // EIMSK &= ~(1<<INT5); //TODO: Platform dependant! Remove!!
@@ -72,7 +73,19 @@ ipc_ret_t ipc_get_available_data(struct spi_device_t *dev, uint8_t *buf, uint8_t
 
 ipc_ret_t ipc_periph_detect(struct spi_device_t *dev, uint8_t *periph_type)
 {
-    int16_t retries = 20000; //Found during trial and error
+
+    printk("Detecting perihperal on ch xx\n");
+uint8_t ipc_packet[] =
+{
+    IPC_CMD_PERIPH_DETECT,
+    0x02,
+    0x59,
+    0x16,
+    0xEF,
+};
+    //int16_t retries = 20000; //Found during trial and error
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
     ipc_ret_t ret = IPC_RET_ERROR_GENERIC;
 
     if (dev == NULL || periph_type == NULL)
@@ -80,37 +93,25 @@ ipc_ret_t ipc_periph_detect(struct spi_device_t *dev, uint8_t *periph_type)
 
     suspend_irq();
 
-    ret = ipc_cmd_invoke(dev, IPC_CMD_PERIPH_DETECT);
-
-    /* Wait for slave to provide data and signal */
- //   while ((IRQ_FUTUR_IN & (1<<IRQ_FUTUR_PIN)) != (1<<IRQ_FUTUR_PIN) && retries--);
-
-    if (retries == 0) {
-        ret = IPC_RET_ERROR_TARGET_DEAD;
-        goto exit;
+    while(bytes_to_send--)
+    {
+        init_aaps_a(dev->hw_ch);
+        spi_send_one(dev, ~(ipc_packet[cnter++]));
     }
-
-    /* Slave is ready, clock data out */
-    *periph_type = spi_send_one(dev, IPC_DUMMY_BYTE);
-    if (*periph_type < 100)
-        ret = IPC_RET_ERROR_TARGET_DEAD;
-    else
-        ret = IPC_RET_OK;
-
-exit:
+    ret = IPC_RET_OK;
     resume_irq();
     return ret;
 }
 
-static ipc_ret_t ipc_cmd_invoke(struct spi_device_t *dev, enum ipc_command_t cmd)
-{
-    ipc_ret_t ret = IPC_RET_ERROR_GENERIC;
-
-    if (dev == NULL)
-        return IPC_RET_ERROR_BAD_PARAMS;
-
-    spi_send_one(dev, cmd);
-
-    ret = IPC_RET_OK;
-    return ret;
-}
+//static ipc_ret_t ipc_cmd_invoke(struct spi_device_t *dev, enum ipc_command_t cmd)
+//{
+//    ipc_ret_t ret = IPC_RET_ERROR_GENERIC;
+//
+//    if (dev == NULL)
+//        return IPC_RET_ERROR_BAD_PARAMS;
+//
+//    spi_send_one(dev, cmd);
+//
+//    ret = IPC_RET_OK;
+//    return ret;
+//}

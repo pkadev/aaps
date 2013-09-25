@@ -19,6 +19,9 @@ static void disable_aaps_a(struct hw_channel_t *ch)
 
 void init_aaps_a(struct hw_channel_t *ch)
 {
+    if (ch == NULL)
+        printk("init_aaps_failed\n");
+
     /* Set MOSI, CS and SCK output */
     DDRB |= (1<<MOSI) | (1<<SCK);
     DDRB |= (1<<PB0);
