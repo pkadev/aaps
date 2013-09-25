@@ -30,6 +30,8 @@ static int current(uint16_t current, struct spi_device_t *dev);
 static int reboot(void);
 static int fan0_speed(uint16_t speed);
 static int fan1_speed(uint16_t speed);
+static int set_relay_d(uint16_t enable, struct spi_device_t *dev);
+static int set_relay(uint16_t enable, struct spi_device_t *dev);
 static int cmd_send_ipc(void);
 
 #define CHAR_BACKSPACE 0x7F
@@ -94,6 +96,8 @@ static struct cmd_list_t cmd_list[] = {
     { "reboot", reboot },
     { "fan0", fan0_speed },
     { "fan1", fan1_speed },
+    { "relayd", set_relay_d },
+    { "relay", set_relay },
     { "send", cmd_send_ipc },
 };
 
@@ -248,6 +252,61 @@ static int fan1_speed(uint16_t speed)
     return 0;
 }
 
+static int set_relay_d(uint16_t enable, struct spi_device_t *dev)
+{
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
+    uint8_t ipc_packet[] =
+    {
+        IPC_CMD_SET_RELAY_D,
+        0x02,
+        0x00,
+        0x00,
+        0xbc
+    };
+    ipc_packet[3] = enable ? 1 : 0;
+    printk("Relay_d %u\n", ipc_packet[3]);
+
+    if (dev == NULL) {
+        printk("NULL device. Failed to set current.\n");
+        return -1;
+    }
+    while(bytes_to_send--)
+    {
+        init_aaps_a(dev->hw_ch);
+        spi_send_one(dev, ~(ipc_packet[cnter++]));
+    }
+    dev = NULL;
+    return 0;
+}
+
+static int set_relay(uint16_t enable, struct spi_device_t *dev)
+{
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
+    uint8_t ipc_packet[] =
+    {
+        IPC_CMD_SET_RELAY,
+        0x02,
+        0x00,
+        0x00,
+        0xbc
+    };
+    ipc_packet[3] = enable ? 1 : 0;
+    printk("Relay %u\n", ipc_packet[3]);
+
+    if (dev == NULL) {
+        printk("NULL device. Failed to set current.\n");
+        return -1;
+    }
+    while(bytes_to_send--)
+    {
+        init_aaps_a(dev->hw_ch);
+        spi_send_one(dev, ~(ipc_packet[cnter++]));
+    }
+    dev = NULL;
+    return 0;
+}
 static int cmd_send_ipc(void)
 {
     //char *fw = strchr(cmd_input.buffer, ' ');
