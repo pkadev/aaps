@@ -109,9 +109,9 @@ void hw_init(void)
     /* Configure IRQ for connected channels */
 //  EICRB |= (1<<ISC51) | (1<<ISC50);
     EICRA |= (1<<ISC01) | (1<<ISC21);
-    EIMSK |= /*(1<<INT0) |*/ (1 << INT2);
+    EIMSK |= (1 << INT2); //Enable for CON16
+   // EIMSK |= (1 << INT0); //Enable for CON13
     /* End Configure IRQ */
-    //system_channel = hw_ch12;
 }
 
 /* Make this dynamic memory allocation */

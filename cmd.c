@@ -32,9 +32,9 @@ static int fan0_speed(uint16_t speed);
 static int fan1_speed(uint16_t speed);
 static int set_relay_d(uint16_t enable, struct spi_device_t *dev);
 static int set_relay(uint16_t enable, struct spi_device_t *dev);
-static int cmd_send_ipc(void);
 
 #define CHAR_BACKSPACE 0x7F
+#define IPC_DUMMY_CRC 0xbc
 
 struct cmd_list_t {
     const char *name;
@@ -53,7 +53,6 @@ ISR(USART2_RX_vect)
         cmd_input.pos++;
     } else if (c == CHAR_BACKSPACE) {
         cmd_input.pos--;
-       // printk("char: %i\n", c);
     }
 }
 
@@ -67,7 +66,7 @@ void cmd_init(void)
 
 void pending_cmd(void)
 {
-    if(initialized == 1)
+    if(initialized)
     {
         if (cmd_input.pos != 0 )
         {
@@ -98,7 +97,6 @@ static struct cmd_list_t cmd_list[] = {
     { "fan1", fan1_speed },
     { "relayd", set_relay_d },
     { "relay", set_relay },
-    { "send", cmd_send_ipc },
 };
 
 static void find_service(const char * service)
@@ -121,7 +119,7 @@ static void find_service(const char * service)
              * some other way
              */
             /* TODO: This is a bug if this doesn't convert
-             * to a integer within numver of available
+             * to a integer within number of available
              * channels.
              */
             dev = channel_lookup(atoi(delimiter+1));
@@ -157,7 +155,11 @@ static int help(void)
             name[len-2]  = '\n';
             name[len-1]  = 0;
             //printk("Allocated %u bytes\n", len);
+        } else {
+            /* Out of memory */
+            return -1;
         }
+
         printk(name);
         free(name);
         name = NULL;
@@ -167,19 +169,23 @@ static int help(void)
 
 static int current(uint16_t current, struct spi_device_t *dev)
 {
-    uint8_t packet2[] = { IPC_CMD_SET_CURRENT_LIMIT, 0x02, current & 0xff, (current >> 8) & 0xff, 0xbc };
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
+    uint8_t ipc_packet[] =
+    {
+        IPC_CMD_SET_CURRENT_LIMIT, 0x02,
+        current & 0xff, (current >> 8) & 0xff,
+        IPC_DUMMY_CRC,
+    };
 
     if (dev == NULL) {
         printk("NULL device. Failed to set current.\n");
         return -1;
     }
-    printk("Set current %u\n", 0xffff & current);
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
     while(bytes_to_send--)
     {
         init_aaps_a(dev->hw_ch);
-        spi_send_one(dev, ~(packet2[cnter++]));
+        spi_send_one(dev, ~(ipc_packet[cnter++]));
     }
     dev = NULL;
     return 0;
@@ -187,6 +193,8 @@ static int current(uint16_t current, struct spi_device_t *dev)
 
 static int voltage(uint16_t voltage, struct spi_device_t *dev)
 {
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
     uint32_t convert = (uint32_t)voltage * 100000;
     uint16_t ratio = 57632;
 
@@ -202,11 +210,13 @@ static int voltage(uint16_t voltage, struct spi_device_t *dev)
     convert /= ratio;
     voltage = convert;
 
-    uint8_t packet1[] = { IPC_CMD_SET_VOLTAGE, 0x02, voltage & 0xff, (voltage >> 8) & 0xff, 0xEF };
+    uint8_t packet1[] =
+    {
+        IPC_CMD_SET_VOLTAGE, 0x02,
+        voltage & 0xff, (voltage >> 8) & 0xff,
+        0xEF
+    };
 
-    printk("Set voltage %u\n", 0xffff & voltage);
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
     while(bytes_to_send--)
     {
         init_aaps_a(dev->hw_ch);
@@ -262,10 +272,9 @@ static int set_relay_d(uint16_t enable, struct spi_device_t *dev)
         0x02,
         0x00,
         0x00,
-        0xbc
+        IPC_DUMMY_CRC,
     };
     ipc_packet[3] = enable ? 1 : 0;
-    printk("Relay_d %u\n", ipc_packet[3]);
 
     if (dev == NULL) {
         printk("NULL device. Failed to set current.\n");
@@ -290,10 +299,9 @@ static int set_relay(uint16_t enable, struct spi_device_t *dev)
         0x02,
         0x00,
         0x00,
-        0xbc
+        IPC_DUMMY_CRC,
     };
     ipc_packet[3] = enable ? 1 : 0;
-    printk("Relay %u\n", ipc_packet[3]);
 
     if (dev == NULL) {
         printk("NULL device. Failed to set current.\n");
@@ -307,25 +315,3 @@ static int set_relay(uint16_t enable, struct spi_device_t *dev)
     dev = NULL;
     return 0;
 }
-static int cmd_send_ipc(void)
-{
-    //char *fw = strchr(cmd_input.buffer, ' ');
-    //char *bw = strrchr(cmd_input.buffer, ' ');
-    //char *param = bw + 1;
-
-    //if (fw != bw) {
-    //    printk("Too many parameters\n");
-    //    return -1;
-    //}
-
-    //if (!isdigit(*(fw+1))) {
-    //    printk("Param not integer [%s]\n", (fw + 1));
-    //    return -1;
-    //}
-
-    //struct spi_device_t dev;
-    //dev.cs_pin = 2;
-    //spi_send_one(&dev, atoi(param));
-    return 0;
-}
-
