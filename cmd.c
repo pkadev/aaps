@@ -32,6 +32,7 @@ static int fan0_speed(uint16_t speed);
 static int fan1_speed(uint16_t speed);
 static int set_relay_d(uint16_t enable, struct spi_device_t *dev);
 static int set_relay(uint16_t enable, struct spi_device_t *dev);
+static int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev);
 
 #define CHAR_BACKSPACE 0x7F
 #define IPC_DUMMY_CRC 0xbc
@@ -97,6 +98,7 @@ static struct cmd_list_t cmd_list[] = {
     { "fan1", fan1_speed },
     { "relayd", set_relay_d },
     { "relay", set_relay },
+    { "gettemp", get_aaps_a_temp },
 };
 
 static void find_service(const char * service)
@@ -302,6 +304,32 @@ static int set_relay(uint16_t enable, struct spi_device_t *dev)
         IPC_DUMMY_CRC,
     };
     ipc_packet[3] = enable ? 1 : 0;
+
+    if (dev == NULL) {
+        printk("NULL device. Failed to set current.\n");
+        return -1;
+    }
+    while(bytes_to_send--)
+    {
+        init_aaps_a(dev->hw_ch);
+        spi_send_one(dev, ~(ipc_packet[cnter++]));
+    }
+    dev = NULL;
+    return 0;
+}
+
+static int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
+{
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
+    uint8_t ipc_packet[] =
+    {
+        IPC_CMD_GET_TEMP,
+        0x02,
+        0x00,
+        0xff & channel,
+        IPC_DUMMY_CRC,
+    };
 
     if (dev == NULL) {
         printk("NULL device. Failed to set current.\n");
