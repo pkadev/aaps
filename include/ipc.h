@@ -10,13 +10,20 @@ enum ipc_command_t
     IPC_CMD_PERIPH_DETECT,
     IPC_CMD_NUM_OF_CMDS,
     IPC_CMD_GET_TEMP,
-    IPC_CMD_GET_VOLTAGE,
-    IPC_CMD_GET_CURRENT,
+    IPC_CMD_GET_ADC,
     IPC_CMD_DATA_AVAILABLE,
     IPC_CMD_SET_VOLTAGE,
     IPC_CMD_SET_CURRENT_LIMIT,
     IPC_CMD_SET_RELAY_D,
     IPC_CMD_SET_RELAY,
+};
+
+enum ipc_data_type_t
+{
+    IPC_DATA_THERMO = 0x7E,
+    IPC_DATA_VOLTAGE = 0x7B,
+    IPC_DATA_CURRENT = 0x7C,
+    IPC_DATA_ASCII = 0x7D,
 };
 
 struct ipc_data_t

@@ -73,16 +73,14 @@ ipc_ret_t ipc_get_available_data(struct spi_device_t *dev, uint8_t *buf, uint8_t
 
 ipc_ret_t ipc_periph_detect(struct spi_device_t *dev, uint8_t *periph_type)
 {
-
-    printk("Detecting perihperal on ch xx\n");
-uint8_t ipc_packet[] =
-{
-    IPC_CMD_PERIPH_DETECT,
-    0x02,
-    0x59,
-    0x16,
-    0xEF,
-};
+    uint8_t ipc_packet[] =
+    {
+        IPC_CMD_PERIPH_DETECT,
+        0x02,
+        0x59,
+        0x16,
+        0xEF,
+    };
     //int16_t retries = 20000; //Found during trial and error
     uint8_t bytes_to_send = 5;
     uint8_t cnter = 0;
@@ -102,16 +100,3 @@ uint8_t ipc_packet[] =
     resume_irq();
     return ret;
 }
-
-//static ipc_ret_t ipc_cmd_invoke(struct spi_device_t *dev, enum ipc_command_t cmd)
-//{
-//    ipc_ret_t ret = IPC_RET_ERROR_GENERIC;
-//
-//    if (dev == NULL)
-//        return IPC_RET_ERROR_BAD_PARAMS;
-//
-//    spi_send_one(dev, cmd);
-//
-//    ret = IPC_RET_OK;
-//    return ret;
-//}

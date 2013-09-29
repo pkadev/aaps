@@ -205,7 +205,7 @@ int main(void)
             {
                 if (rsn == IPC_CMD_DATA_AVAILABLE)
                 {
-                    uint8_t *str;
+                    uint8_t *buf;
                     uint8_t len;
 
                     if (ipc_get_data_len(channel_lookup(irq_from_slave), &len) == IPC_RET_OK)
@@ -213,19 +213,50 @@ int main(void)
                     else
                         printk("get len failed\n");
 
-                    str = malloc(len + 1);
+                    buf = malloc(len + 1);
 
-                    if (str == NULL)
+                    if (buf == NULL)
                         printk("Malloc failed\n");
 
-                    if (ipc_get_available_data(channel_lookup(irq_from_slave), str, len) == IPC_RET_OK) {
-                        str[len] = '\0';
-                    }
-                    else
+                    if (ipc_get_available_data(channel_lookup(irq_from_slave), buf, len) == IPC_RET_OK) {
+                        buf[len] = '\0';
+                    } else
                         printk("get data failed\n");
 
-                    printk((char *)str);
-                    free(str);
+                    /*                                           *
+                     * TODO: Move this section to a separate     *
+                     * function that formats data based on data  *
+                     * types.                                    *
+                     *                                           */
+
+                    if (*buf == IPC_DATA_THERMO)
+                    {
+                        printk("Received a temperature\n");
+                        ow_temp_t  a_temp;
+                        a_temp.temp = buf[1];
+                        a_temp.dec = buf[2];
+                        printk("Type - temp: %u.%u°C\n", a_temp.temp, a_temp.dec);
+                    }
+                    else if (*buf == IPC_DATA_VOLTAGE)
+                    {
+                        printk("Received a voltage reading\n");
+                        uint16_t voltage = (buf[1] << 8) | (buf[2] & 0xFF);
+                        printk("Voltage: %u\n", voltage);
+                    }
+                    else if (*buf == IPC_DATA_CURRENT)
+                    {
+                        printk("Received a current reading\n");
+                        uint16_t current = (buf[1] << 8) | (buf[2] & 0xFF);
+                        printk("Current: %u\n", current);
+                    }
+                    else if(*buf == IPC_DATA_ASCII)
+                    {
+                        //printk("Received ascii string\n");
+                        printk((char *)(buf+1));
+                    }
+                    else
+                        printk("Unknown data type received 0x%x\n", *buf);
+                    free(buf);
                 }
             }
             irq_from_slave = NO_IRQ;

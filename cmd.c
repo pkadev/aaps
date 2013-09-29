@@ -33,7 +33,7 @@ static int fan1_speed(uint16_t speed);
 static int set_relay_d(uint16_t enable, struct spi_device_t *dev);
 static int set_relay(uint16_t enable, struct spi_device_t *dev);
 static int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev);
-int get_adc(uint16_t channel, struct spi_device_t *dev);
+static int get_adc(uint16_t channel, struct spi_device_t *dev);
 
 #define CHAR_BACKSPACE 0x7F
 #define IPC_DUMMY_CRC 0xbc
@@ -346,13 +346,13 @@ static int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
     return 0;
 }
 
-int get_adc(uint16_t channel, struct spi_device_t *dev)
+static int get_adc(uint16_t channel, struct spi_device_t *dev)
 {
     uint8_t bytes_to_send = 5;
     uint8_t cnter = 0;
     uint8_t ipc_packet[] =
     {
-        IPC_CMD_GET_VOLTAGE,
+        IPC_CMD_GET_ADC,
         0x02,
         0x00,
         0xff & channel,
