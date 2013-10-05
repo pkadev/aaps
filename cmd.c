@@ -43,14 +43,28 @@ struct cmd_list_t {
     int (*func)();
 };
 
+#define ASCII_CR 0x0D
+
 ISR(USART2_RX_vect)
 {
     char c = UART_DATA_REG;
-    if(isalnum(c) || c == 0x0D || c == ' ')
+    if(isalnum(c) || c == ASCII_CR || c == ' ')
     {
-        if (c == 0x0D) {
-            c = 0x0;
+        if (c == ASCII_CR) {
+            c = 0x00;
         }
+
+        /*
+         * This checks for input buffer overflow.
+         * If this scenario appears we need to change
+         * the size of CMD_INPUT_BUFFER_SIZE-
+         */
+        if (cmd_input.pos == (CMD_INPUT_BUFFER_SIZE)) {
+            cmd_input.pos--;
+            if (c == ASCII_CR)
+                c = 0x00;
+        }
+
         cmd_input.buffer[cmd_input.pos] = c;
         cmd_input.pos++;
     } else if (c == CHAR_BACKSPACE) {

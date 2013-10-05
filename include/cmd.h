@@ -1,7 +1,7 @@
 #ifndef CMD_H__
 #define CMD_H__
 
-#define CMD_INPUT_BUFFER_SIZE 24
+#define CMD_INPUT_BUFFER_SIZE 32
 
 typedef struct {
     char buffer[CMD_INPUT_BUFFER_SIZE];
