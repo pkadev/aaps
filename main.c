@@ -86,7 +86,7 @@ uint8_t packet1[] =
 {
     IPC_CMD_SET_VOLTAGE,
     0x02,
-    0x59,
+    0xf9,
     0x16,
     0xEF,
 };
@@ -103,14 +103,20 @@ uint8_t packet2[] =
 /* Temporary debug function */
 int send_packet1(void)
 {
-    printk("Set voltage\n");
+    static uint16_t in_voltage = 0;
+    printk("Set voltage %u\n", in_voltage);
     uint8_t bytes_to_send = 5;
     uint8_t cnter = 0;
 
+    packet1[3] = (in_voltage >> 8);
+    packet1[2] = (in_voltage & 0xff);
+    in_voltage += 1000;
+    if (in_voltage > 50000)
+        in_voltage = 0;
     while(bytes_to_send--)
     {
-        init_aaps_a(analog_zero.hw_ch);
-        spi_send_one(&analog_zero, ~(packet1[cnter++]));
+        init_aaps_a(analog_one.hw_ch);
+        spi_send_one(&analog_one, ~(packet1[cnter++]));
     }
     return 0;
 }
@@ -175,12 +181,10 @@ int main(void)
 
     timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
     timer1_create_timer(get_temp, 10000, PERIODIC, 200);
-    //timer1_create_timer(card_detect, 500, PERIODIC, 0);
-//    timer1_create_timer(send_packet1, 210, PERIODIC, 2100);
-    timer1_create_timer(send_packet2, 2000, ONE_SHOT, 0 );
-    timer1_create_timer(send_packet1, 2000, ONE_SHOT, 1000);
-//    timer1_create_timer(send_packet1, 1000, ONE_SHOT, 6000);
-//    timer1_create_timer(send_packet1, 1000, ONE_SHOT, 4000);
+//  timer1_create_timer(card_detect, 500, PERIODIC, 0);
+//  timer1_create_timer(send_packet1, 100, PERIODIC, 5100);
+//  timer1_create_timer(send_packet2, 2000, ONE_SHOT, 0 );
+//  timer1_create_timer(send_packet1, 2000, ONE_SHOT, 1000);
 
     /* Detect peripherals */
 //    uint8_t periph_type;
@@ -253,6 +257,11 @@ int main(void)
                     {
                         //printk("Received ascii string\n");
                         printk((char *)(buf+1));
+                    }
+                    else if(*buf == IPC_DATA_ENC)
+                    {
+                        uint16_t enc_pos = (buf[1] << 8) | (buf[2] & 0xff);
+                        printk("Enc: %u\n", enc_pos);
                     }
                     else
                         printk("Unknown data type received 0x%x\n", *buf);

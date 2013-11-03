@@ -20,10 +20,11 @@ enum ipc_command_t
 
 enum ipc_data_type_t
 {
-    IPC_DATA_THERMO = 0x7E,
     IPC_DATA_VOLTAGE = 0x7B,
     IPC_DATA_CURRENT = 0x7C,
     IPC_DATA_ASCII = 0x7D,
+    IPC_DATA_THERMO = 0x7E,
+    IPC_DATA_ENC = 0x7F,
 };
 
 struct ipc_data_t
