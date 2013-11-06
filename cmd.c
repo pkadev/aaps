@@ -25,7 +25,7 @@ struct spi_device_t *dev = 0;
  */
 static int help(void);
 static int temp_out(void);
-static int voltage(uint16_t voltage, struct spi_device_t *dev);
+//static int voltage(uint16_t voltage, struct spi_device_t *dev);
 static int current(uint16_t current, struct spi_device_t *dev);
 static int reboot(void);
 static int fan0_speed(uint16_t speed);
@@ -209,7 +209,7 @@ static int current(uint16_t current, struct spi_device_t *dev)
     return 0;
 }
 
-static int voltage(uint16_t voltage, struct spi_device_t *dev)
+int voltage(uint16_t voltage, struct spi_device_t *dev)
 {
     uint8_t bytes_to_send = 5;
     uint8_t cnter = 0;

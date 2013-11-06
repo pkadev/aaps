@@ -1,7 +1,9 @@
 #include <avr/io.h>
 #include <stdlib.h>
+#include <util/delay.h>
 #include "spi.h"
 #include "uart.h"
+#include "aaps_a.h"
 
 #define SPI_WAIT() while(!(SPSR & (1<<SPIF)))
 #define SPI_DUMMY_BYTE 0xCC
@@ -29,6 +31,7 @@ uint8_t spi_send_one(struct spi_device_t *device, uint8_t buf)
 {
     uint8_t recv = 0;
 
+    init_aaps_a(device->hw_ch);
     enable(device->hw_ch);
     recv = spi_transfer(buf);
     disable(device->hw_ch);

@@ -179,8 +179,8 @@ int main(void)
     //temp.dec = 0;
 
 
-    timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
-    timer1_create_timer(get_temp, 10000, PERIODIC, 200);
+//  timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
+//  timer1_create_timer(get_temp, 10000, PERIODIC, 200);
 //  timer1_create_timer(card_detect, 500, PERIODIC, 0);
 //  timer1_create_timer(send_packet1, 100, PERIODIC, 5100);
 //  timer1_create_timer(send_packet2, 2000, ONE_SHOT, 0 );
@@ -205,8 +205,10 @@ int main(void)
             ipc_irq_reason_t rsn;
              /* Do the lookup up of channels properly */
 
+            //printk("slave id: %u\n", irq_from_slave);
             if (ipc_get_irq_reason(channel_lookup(irq_from_slave), &rsn) == IPC_RET_OK)
             {
+                //printk("Reason: %u\n", rsn);
                 if (rsn == IPC_CMD_DATA_AVAILABLE)
                 {
                     uint8_t *buf;
@@ -261,7 +263,8 @@ int main(void)
                     else if(*buf == IPC_DATA_ENC)
                     {
                         uint16_t enc_pos = (buf[1] << 8) | (buf[2] & 0xff);
-                        printk("Enc: %u\n", enc_pos);
+                        //printk("Enc: %u\n", enc_pos);
+                        voltage(enc_pos, channel_lookup(1));
                     }
                     else
                         printk("Unknown data type received 0x%x\n", *buf);
