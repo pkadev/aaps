@@ -148,6 +148,8 @@ int main(void)
     //TODO: Channel initialization can't be hard coded like this
     analog_zero.hw_ch = system_channel[0];
     analog_one.hw_ch = system_channel[1];
+    init_aaps_a(analog_zero.hw_ch);
+    init_aaps_a(analog_one.hw_ch);
 
     uint8_t ow_num_sensors = ow_num_devices();
     ow_devices = malloc(sizeof(ow_device_t)*ow_num_sensors);
@@ -165,12 +167,8 @@ int main(void)
     ds3234_init();
     timer1_init();
 
+    printk("DS3234 ctrl reg: 0x%x\n", ds3234_read_ctrl_reg());
     ow_print_device_addr(&(ow_devices[0]));
-    /* PCINT10 from CH12 */
-    //PCMSK1 |= (1<< PCINT10);
-    ///* PCINT11 from CH13 */
-    //PCMSK1 |= (1<< PCINT11);
-    //PCICR |= (1<<PCIE1);
 
 //mem_test();
 
