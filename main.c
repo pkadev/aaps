@@ -219,19 +219,20 @@ int main(void)
   //  }
 
     uint8_t cnt = 0;
-
+    uint8_t slave = NO_IRQ;
     while(1)
     {
         cnt++;
         pending_cmd();
-        if (irq_from_slave != NO_IRQ) {
-            //printk("irq_from_slave is %u\n", irq_from_slave);
+        slave = ipc_which_irq(irq_from_slave);
+        if (slave != NO_IRQ) {
+            //printk("irq_from slave is %u\n", slave);
             //Find out why slave is bothering us
             ipc_irq_reason_t rsn;
              /* Do the lookup up of channels properly */
 
             //printk("slave id: %u\n", irq_from_slave);
-            if (ipc_get_irq_reason(channel_lookup(irq_from_slave), &rsn) == IPC_RET_OK)
+            if (ipc_get_irq_reason(channel_lookup(slave), &rsn) == IPC_RET_OK)
             {
                 //printk("Reason: %u\n", rsn);
                 if (rsn == IPC_CMD_DATA_AVAILABLE)
@@ -239,7 +240,7 @@ int main(void)
                     uint8_t *buf;
                     uint8_t len;
 
-                    if (ipc_get_data_len(channel_lookup(irq_from_slave), &len) == IPC_RET_OK)
+                    if (ipc_get_data_len(channel_lookup(slave), &len) == IPC_RET_OK)
                         ;
                     else
                         printk("get len failed\n");
@@ -249,7 +250,7 @@ int main(void)
                     if (buf == NULL)
                         printk("Malloc failed\n");
 
-                    if (ipc_get_available_data(channel_lookup(irq_from_slave), buf, len) == IPC_RET_OK) {
+                    if (ipc_get_available_data(channel_lookup(slave), buf, len) == IPC_RET_OK) {
                         buf[len] = '\0';
                     } else
                         printk("get data failed\n");
@@ -297,10 +298,13 @@ int main(void)
                     free(buf);
                 }
             }
-            irq_from_slave = NO_IRQ;
+
+            irq_from_slave[slave]--;
+            if (irq_from_slave[slave] < 0)
+                goto fatal;
         }
     }
-//fatal:
+fatal:
     printk("Fatal error!\n");
     while(1);
 

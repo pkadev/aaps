@@ -18,7 +18,7 @@
 #define IRQ_CH11 INT3_vect
 #define IRQ_CH12 PCINT1_vect
 #define IRQ_CH13 PCINT1_vect
-volatile uint8_t irq_from_slave = NO_IRQ; //No channel
+volatile int8_t irq_from_slave[HW_NBR_OF_CHANNELS] = {0}; //No channel
 
 ISR(IRQ_CH00)
 {
@@ -40,18 +40,18 @@ ISR(IRQ_CH02)
 ISR(IRQ_CH10)
 {
     //printk("irq - CH10\n");
-    irq_from_slave = 1;
+    irq_from_slave[1]++;
 }
 ISR(IRQ_CH08)
 {
     //printk("irq - CH08\n");
-    irq_from_slave = 0; //Set position in system_channels[]
+    irq_from_slave[0]++; //Set position in system_channels[]
 }
 
 ISR(IRQ_CH12)
 {
     if (!(PINJ & (1<<PJ1))) {
-        irq_from_slave = 12;
+        irq_from_slave[12]++;
 //        printk("IRQ from CH12\n");
     }
 }

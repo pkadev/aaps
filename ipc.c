@@ -24,7 +24,20 @@ static void resume_irq(void)
  //   EIFR |= (1<<INTF5);//TODO: Platform dependant! Remove!!
  //   EIMSK |= (1<<INT5);//TODO: Platform dependant! Remove!!
 }
-
+int8_t ipc_which_irq(volatile int8_t irq_flags[])
+{
+    /* TODO: Perhaps 'i' should be static so
+     * that IRQs in the end of the vector doesn't
+     * get starved.
+     */
+    uint8_t i;
+    for (i = 0; i < HW_NBR_OF_CHANNELS; i++)
+    {
+        if (irq_flags[i])
+            return i;
+    }
+    return NO_IRQ;
+}
 ipc_ret_t ipc_get_irq_reason(struct spi_device_t *dev, ipc_irq_reason_t *irq_reason)
 {
     suspend_irq();

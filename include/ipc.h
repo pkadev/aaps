@@ -49,5 +49,6 @@ ipc_ret_t ipc_get_data_len(struct spi_device_t *dev, uint8_t *len);
 ipc_ret_t ipc_periph_detect(struct spi_device_t *dev, uint8_t *periph_type);
 ipc_ret_t ipc_get_available_data(struct spi_device_t *dev, uint8_t *buf, uint8_t len);
 ipc_ret_t ipc_get_irq_reason(struct spi_device_t *dev, ipc_irq_reason_t *irq_reason);
+int8_t ipc_which_irq(volatile int8_t irq_flags[]);
 
 #endif
