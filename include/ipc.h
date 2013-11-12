@@ -16,6 +16,7 @@ enum ipc_command_t
     IPC_CMD_SET_CURRENT_LIMIT,
     IPC_CMD_SET_RELAY_D,
     IPC_CMD_SET_RELAY,
+    IPC_CMD_PUT_DATA,
 };
 
 enum ipc_data_type_t

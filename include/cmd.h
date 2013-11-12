@@ -13,5 +13,6 @@ void cmd_init(void);
 
 void pending_cmd(void);
 int voltage(uint16_t voltage, struct spi_device_t *dev);
+int get_adc(uint16_t channel, struct spi_device_t *dev);
 
 #endif

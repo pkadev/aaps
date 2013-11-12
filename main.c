@@ -90,6 +90,14 @@ uint8_t packet1[] =
     0x16,
     0xEF,
 };
+uint8_t packet3[] =
+{
+    IPC_CMD_PUT_DATA,
+    0x02,
+    0xf9,
+    0x16,
+    0xEF,
+};
 
 uint8_t packet2[] =
 {
@@ -121,6 +129,20 @@ int send_packet1(void)
     return 0;
 }
 
+int send_packet3(uint16_t data)
+{
+    uint8_t bytes_to_send = 5;
+    uint8_t cnter = 0;
+
+    packet3[3] = (data >> 8);
+    packet3[2] = (data & 0xff);
+    while(bytes_to_send--)
+    {
+        init_aaps_a(analog_zero.hw_ch);
+        spi_send_one(&analog_zero, ~(packet3[cnter++]));
+    }
+    return 0;
+}
 /* Temporary debug function */
 int send_packet2(void)
 {
@@ -134,7 +156,11 @@ int send_packet2(void)
     }
     return 0;
 }
-
+int get_raw_voltage(void)
+{
+    get_adc(0, channel_lookup(1));
+    return 0;
+}
 int main(void)
 {
     /* Enable external SRAM early */
@@ -177,6 +203,7 @@ int main(void)
     //temp.dec = 0;
 
 
+  timer1_create_timer(get_raw_voltage, 250, PERIODIC, 1000);
 //  timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
 //  timer1_create_timer(get_temp, 10000, PERIODIC, 200);
 //  timer1_create_timer(card_detect, 500, PERIODIC, 0);
@@ -243,9 +270,10 @@ int main(void)
                     }
                     else if (*buf == IPC_DATA_VOLTAGE)
                     {
-                        printk("Received a voltage reading\n");
+                        //printk("Received a voltage reading\n");
                         uint16_t voltage = (buf[1] << 8) | (buf[2] & 0xFF);
-                        printk("Voltage: %u\n", voltage);
+                        //printk("Voltage: %u\n", voltage);
+                        send_packet3(voltage);
                     }
                     else if (*buf == IPC_DATA_CURRENT)
                     {
