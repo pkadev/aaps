@@ -8,11 +8,11 @@
 #define SPI_WAIT() while(!(SPSR & (1<<SPIF)))
 #define SPI_DUMMY_BYTE 0xCC
 
-static void enable(struct hw_channel_t *hw_ch)
+void enable(struct hw_channel_t *hw_ch)
 {
     *(hw_ch->port) |= (1<<hw_ch->cs_pin);
 }
-static void disable(struct hw_channel_t *hw_ch)
+void disable(struct hw_channel_t *hw_ch)
 {
     *(hw_ch->port) &= ~(1<<hw_ch->cs_pin);
 }
@@ -21,7 +21,7 @@ static void disable(struct hw_channel_t *hw_ch)
 uint8_t spi_transfer(uint8_t tx)
 {
     SPDR = tx;
-    if(!(SPCR & (1<<SPIE)))
+    //if(!(SPCR & (1<<SPIE)))
         SPI_WAIT();
 
     return SPDR;

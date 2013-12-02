@@ -32,7 +32,7 @@ void init_aaps_a(struct hw_channel_t *ch)
     /*
      * Enable SPI, Master, set clock rate.
      */
-    SPCR = (1<<SPE) | (1<<MSTR) | (1<<SPR1);
+    SPCR = (1<<SPE) | (1<<MSTR) | (1<<SPR1) | (1<<SPR0);
     //SPSR = (1<<SPI2X);
     disable_aaps_a(ch);
 }

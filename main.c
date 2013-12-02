@@ -23,6 +23,7 @@
 #include "spi.h"
 #include "aaps_a.h"
 
+static uint8_t event = 0;
 //static struct system_settings sys_settings;
 
 int enable_led1(void)
@@ -96,7 +97,7 @@ uint8_t packet3[] =
     0x02,
     0xf9,
     0x16,
-    0xEF,
+    0xCC,
 };
 
 uint8_t packet2[] =
@@ -136,6 +137,9 @@ int send_packet3(uint16_t data)
 
     packet3[3] = (data >> 8);
     packet3[2] = (data & 0xff);
+    for(int i=0; i < bytes_to_send; i++)
+        printk("%u\n", packet3[i]);
+    printk("\n");
     while(bytes_to_send--)
     {
         init_aaps_a(analog_zero.hw_ch);
@@ -158,7 +162,8 @@ int send_packet2(void)
 }
 int get_raw_voltage(void)
 {
-    get_adc(0, channel_lookup(1));
+    //get_adc(0, channel_lookup(1));
+    event = 1;
     return 0;
 }
 int main(void)
@@ -203,7 +208,7 @@ int main(void)
     //temp.dec = 0;
 
 
-  timer1_create_timer(get_raw_voltage, 250, PERIODIC, 1000);
+//  timer1_create_timer(get_raw_voltage, 1150, PERIODIC, 1000);
 //  timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
 //  timer1_create_timer(get_temp, 10000, PERIODIC, 200);
 //  timer1_create_timer(card_detect, 500, PERIODIC, 0);
@@ -218,90 +223,24 @@ int main(void)
 //        printk("Error detecting peripherals\n");
   //  }
 
-    uint8_t cnt = 0;
+    uint16_t cnt = 0;
     uint8_t slave = NO_IRQ;
+    init_aaps_a(analog_zero.hw_ch);
     while(1)
     {
-        cnt++;
         pending_cmd();
+        if (event)
+        {
+            send_packet3(1234);
+            event = 0;
+        }
         slave = ipc_which_irq(irq_from_slave);
         if (slave != NO_IRQ) {
-            //printk("irq_from slave is %u\n", slave);
-            //Find out why slave is bothering us
-            ipc_irq_reason_t rsn;
-             /* Do the lookup up of channels properly */
-
-            //printk("slave id: %u\n", irq_from_slave);
-            if (ipc_get_irq_reason(channel_lookup(slave), &rsn) == IPC_RET_OK)
-            {
-                //printk("Reason: %u\n", rsn);
-                if (rsn == IPC_CMD_DATA_AVAILABLE)
-                {
-                    uint8_t *buf;
-                    uint8_t len;
-
-                    if (ipc_get_data_len(channel_lookup(slave), &len) == IPC_RET_OK)
-                        ;
-                    else
-                        printk("get len failed\n");
-
-                    buf = malloc(len + 1);
-
-                    if (buf == NULL)
-                        printk("Malloc failed\n");
-
-                    if (ipc_get_available_data(channel_lookup(slave), buf, len) == IPC_RET_OK) {
-                        buf[len] = '\0';
-                    } else
-                        printk("get data failed\n");
-
-                    /*                                           *
-                     * TODO: Move this section to a separate     *
-                     * function that formats data based on data  *
-                     * types.                                    *
-                     *                                           */
-
-                    if (*buf == IPC_DATA_THERMO)
-                    {
-                        printk("Received a temperature\n");
-                        ow_temp_t  a_temp;
-                        a_temp.temp = buf[1];
-                        a_temp.dec = buf[2];
-                        printk("Type - temp: %u.%u°C\n", a_temp.temp, a_temp.dec);
-                    }
-                    else if (*buf == IPC_DATA_VOLTAGE)
-                    {
-                        //printk("Received a voltage reading\n");
-                        uint16_t voltage = (buf[1] << 8) | (buf[2] & 0xFF);
-                        //printk("Voltage: %u\n", voltage);
-                        send_packet3(voltage);
-                    }
-                    else if (*buf == IPC_DATA_CURRENT)
-                    {
-                        printk("Received a current reading\n");
-                        uint16_t current = (buf[1] << 8) | (buf[2] & 0xFF);
-                        printk("Current: %u\n", current);
-                    }
-                    else if(*buf == IPC_DATA_ASCII)
-                    {
-                        //printk("Received ascii string\n");
-                        printk((char *)(buf+1));
-                    }
-                    else if(*buf == IPC_DATA_ENC)
-                    {
-                        uint16_t enc_pos = (buf[1] << 8) | (buf[2] & 0xff);
-                        //printk("Enc: %u\n", enc_pos);
-                        voltage(enc_pos, channel_lookup(1));
-                    }
-                    else
-                        printk("Unknown data type received 0x%x\n", *buf);
-                    free(buf);
-                }
-            }
-
-            irq_from_slave[slave]--;
-            if (irq_from_slave[slave] < 0)
+            cnt++;
+            //printk("irq from slave %u\n", slave);
+            if (ipc_transfer_raw(&analog_zero, slave) != IPC_RET_OK)
                 goto fatal;
+            printk("pkts: %u\n", cnt);
         }
     }
 fatal:

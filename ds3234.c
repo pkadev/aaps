@@ -44,8 +44,8 @@ void ds3234_init(void)
      * Enable SPI, Master, set clock rate.
      * ds3234 can run in 4MHz max
      */
-    SPCR = (1<<SPE) /*| (1<<SPIE)*/ | (1<<MSTR) | (1<<SPR0) | (1<<CPHA);
-    SPSR = (1<<SPI2X);
+    SPCR = (1<<SPE) /*| (1<<SPIE)*/ | (1<<MSTR) | (1<<SPR1) |(1<<SPR0) | (1<<CPHA);
+    //SPSR = (1<<SPI2X);
     CS_HIGH();
 }
 

@@ -18,4 +18,6 @@ uint8_t spi_transfer(uint8_t tx);
 uint8_t spi_send_one(struct spi_device_t *slave, uint8_t buf);
 uint8_t spi_send_multi(struct spi_device_t *dev, uint8_t *buf, uint8_t len);
 
+void enable(struct hw_channel_t *hw_ch);
+void disable(struct hw_channel_t *hw_ch);
 #endif
