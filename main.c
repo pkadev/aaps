@@ -50,34 +50,11 @@ int disable_led0(void)
     return 0;
 }
 
-struct spi_device_t analog_zero =
-{
-    //.opto_coupled = true,
-    //.hw_ch = system_channel[0],
-    .init = init_aaps_a,
-};
-struct spi_device_t analog_one =
-{
-    //.opto_coupled = true,
-    //.hw_ch = system_channel[0],
-    .init = init_aaps_a,
-};
 
 /* TODO: This function must be made more dynamic 
  * and moved to proper source file.
  * Lookup of spi channels can't be hard coded.
  */
-struct spi_device_t *channel_lookup(uint8_t ch)
-{
-    switch(ch)
-    {
-        case 0: { return &analog_zero; break; }
-        case 1: { return &analog_one; break; }
-        default:
-            printk("Error. No such channel [%u]\n", ch);
-    }
-    return NULL;
-}
 uint8_t packet0[] =
 {
     0x01, 0x02, 0xDA, 0x7A, 0x42,
@@ -109,58 +86,7 @@ uint8_t packet2[] =
     0xbc,
 };
 
-/* Temporary debug function */
-int send_packet1(void)
-{
-    static uint16_t in_voltage = 0;
-    printk("Set voltage %u\n", in_voltage);
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
-
-    packet1[3] = (in_voltage >> 8);
-    packet1[2] = (in_voltage & 0xff);
-    in_voltage += 1000;
-    if (in_voltage > 50000)
-        in_voltage = 0;
-    while(bytes_to_send--)
-    {
-        init_aaps_a(analog_one.hw_ch);
-        spi_send_one(&analog_one, ~(packet1[cnter++]));
-    }
-    return 0;
-}
-
-int send_packet3(uint16_t data)
-{
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
-
-    packet3[3] = (data >> 8);
-    packet3[2] = (data & 0xff);
-    for(int i=0; i < bytes_to_send; i++)
-        printk("%u\n", packet3[i]);
-    printk("\n");
-    while(bytes_to_send--)
-    {
-        init_aaps_a(analog_zero.hw_ch);
-        spi_send_one(&analog_zero, ~(packet3[cnter++]));
-    }
-    return 0;
-}
-/* Temporary debug function */
-int send_packet2(void)
-{
-    printk("Set current\n");
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
-    while(bytes_to_send--)
-    {
-        init_aaps_a(analog_zero.hw_ch);
-        spi_send_one(&analog_zero, ~(packet2[cnter++]));
-    }
-    return 0;
-}
-int get_raw_voltage(void)
+int trigger_event(void)
 {
     //get_adc(0, channel_lookup(1));
     event = 1;
@@ -208,7 +134,7 @@ int main(void)
     //temp.dec = 0;
 
 
-//  timer1_create_timer(get_raw_voltage, 1150, PERIODIC, 1000);
+//  timer1_create_timer(trigger_event, 3000, ONE_SHOT, 0);
 //  timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
 //  timer1_create_timer(get_temp, 10000, PERIODIC, 200);
 //  timer1_create_timer(card_detect, 500, PERIODIC, 0);
@@ -226,24 +152,35 @@ int main(void)
     uint16_t cnt = 0;
     uint8_t slave = NO_IRQ;
     init_aaps_a(analog_zero.hw_ch);
+    struct ipc_packet_t pkt;
     while(1)
     {
         pending_cmd();
         if (event)
         {
-            send_packet3(1234);
+            /* Handle IRQ events */
             event = 0;
         }
         slave = ipc_which_irq(irq_from_slave);
         if (slave != NO_IRQ) {
             cnt++;
             //printk("irq from slave %u\n", slave);
-            if (ipc_transfer_raw(&analog_zero, slave) != IPC_RET_OK)
-                goto fatal;
-            printk("pkts: %u\n", cnt);
+            if (ipc_get_pkt(slave, &pkt) == IPC_RET_OK)
+            {
+                printk("len: %u\n", pkt.len);
+                printk("cmd: %u\n", pkt.cmd);
+                printk("crc: %u\n", pkt.crc);
+                printk("d00: %u\n", pkt.data[1]);
+                printk("d01: %u\n", pkt.data[0]);
+                printk("pkts: %u\n", cnt);
+            }
+            else
+            {
+                printk("get failed\n");
+            }
         }
     }
-fatal:
+//fatal:
     printk("Fatal error!\n");
     while(1);
 

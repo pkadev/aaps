@@ -10,71 +10,148 @@
 #include "aaps_a.h"
 
 #define IPC_DUMMY_BYTE 0xff
+#define IPC_SYNC_BYTE 0xfc
+#define IPC_FINALIZE_BYTE 0xc0
+#define IPC_GET_BYTE 0x55
+#define IPC_PUT_BYTE 0x66
+#define WAIT_CNT 50000
 
+struct spi_device_t analog_zero =
+{
+    //.opto_coupled = true,
+    //.hw_ch = system_channel[0],
+    .init = init_aaps_a,
+};
+struct spi_device_t analog_one =
+{
+    //.opto_coupled = true,
+    //.hw_ch = system_channel[0],
+    .init = init_aaps_a,
+};
 volatile uint8_t send_semaphore = 0;
 volatile uint8_t spi_data_buf = 0;
 
-ipc_ret_t ipc_transfer_raw(struct spi_device_t *dev, uint8_t slave)
+ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt)
 {
     /* TODO: Handle return values */
-    /* TODO: Define ack and finalize variables 0xfc 0xc0 */
-
-#define WAIT_CNT 2000
-    uint8_t buf = 0x55;
-    uint8_t recv = 0;
     uint8_t data;
+    uint8_t buf = IPC_GET_BYTE;
+    uint16_t wait_cnt = WAIT_CNT;
+    struct spi_device_t *dev = channel_lookup(slave);
 
     enable(dev->hw_ch);
-    uint16_t wait_cnt = WAIT_CNT;
     do
     {
-        recv = spi_transfer(buf);
-        //printk("trying...0x%x\n", recv);
+        data = spi_transfer(buf);
         if (!wait_cnt--)
         {
-            printk("Transfer failed! 0x%x\n", recv);
+            printk("Transfer failed! 0x%x\n", data);
             goto no_answer;
         }
-    }while(recv != 0xfc); /* Wait for ACK */
+    }while(data != IPC_SYNC_BYTE); /* Wait for ACK */
 
     /* First byte is data length */
     uint8_t rx_len = spi_transfer(buf);
+    pkt->len = rx_len;
 
-    if (rx_len == 0)
+    if (pkt->len == 0)
+    {
+        /* TODO: Add return value */
         printk("Len is zero\n");
+        goto no_answer;
+    }
+
+    /* TODO: Remove duplication of length variable
+     * on slave side.
+     */
+    data = spi_transfer(buf);
+    rx_len--;
+
+    pkt->cmd = spi_transfer(buf);
+    rx_len--;
+
+    pkt->crc = spi_transfer(buf);
+    rx_len--;
 
     while(rx_len--)
     {
-        data =  spi_transfer(buf);
-
+        pkt->data[rx_len] = spi_transfer(buf);
         /*
          * This delay is dependant on system
          * clocks on master and slave.
          */
-        _delay_us(2); 
+        _delay_us(2);
     }
 
     /* Synchronize end of transmission */
     wait_cnt = WAIT_CNT;
     do
     {
-        recv = spi_transfer(buf);
-        //printk("Finalizing...0x%x\n", recv);
+        data = spi_transfer(buf);
         if (!wait_cnt--)
         {
-            printk("Finalize failed! Received: 0x%x\n", recv);
+            printk("Finalize failed! Received: 0x%x\n", data);
             goto no_answer;
         }
-    }while(recv != 0xC0); /* Wait for ACK */
+    }while(data != IPC_FINALIZE_BYTE); /* Wait for ACK */
+
+
 no_answer:
-    disable(dev->hw_ch);
     irq_from_slave[slave]--;
 
     if (irq_from_slave[slave] < 0)
         return IPC_RET_ERROR_GENERIC;
 
+    disable(dev->hw_ch);
     return IPC_RET_OK;
 }
+
+struct spi_device_t *channel_lookup(uint8_t ch)
+{
+    switch(ch)
+    {
+        case 0: { printk("ch0\n"); return &analog_zero; }
+        case 1: { printk("ch1\n"); return &analog_one; }
+        default:
+            printk("Error. No such channel [%u]\n", ch);
+    }
+    return NULL;
+}
+//ipc_ret_t ipc_recv_pkt(uint8_t slave, struct ipc_packet_t *pkt)
+//{
+//    ipc_ret_t ret = IPC_RET_OK;
+//
+//    if (pkt == NULL)
+//        return IPC_RET_ERROR_BAD_PARAMS;
+//
+//    ret = ipc_transfer_raw(channel_lookup(slave), slave, pkt);
+//    if (ret != IPC_RET_OK)
+//    {
+//        printk("recv failed\n");
+//        goto error;
+//    }
+//
+//error:
+//    return ret;
+//}
+
+//ipc_ret_t ipc_send_pkt(uint8_t slave, struct ipc_packet_t *pkt)
+//{
+//    printk("ipc_send_pkt\n");
+//    ipc_ret_t result = IPC_RET_OK;
+//
+//    if (pkt == NULL)
+//        return IPC_RET_ERROR_BAD_PARAMS;
+//
+//    result = ipc_transfer_raw(channel_lookup(slave), slave, pkt);
+//    if (result != IPC_RET_OK)
+//    {
+//        printk("put failed\n");
+//        result = IPC_RET_ERROR_TX;
+//    }
+//    return result;
+//}
+
 int8_t ipc_which_irq(volatile int8_t irq_flags[])
 {
     /* TODO: Perhaps 'i' should be static so
