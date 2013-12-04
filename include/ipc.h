@@ -53,7 +53,7 @@ struct spi_device_t *channel_lookup(uint8_t ch);
 extern struct spi_device_t analog_zero;
 extern struct spi_device_t analog_one;
 ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt);
-ipc_ret_t ipc_send_pkt(uint8_t slave, struct ipc_packet_t *pkt);
+ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt);
 ipc_ret_t ipc_periph_detect(struct spi_device_t *dev, uint8_t *periph_type);
 int8_t ipc_which_irq(volatile int8_t irq_flags[]);
 

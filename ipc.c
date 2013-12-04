@@ -15,6 +15,7 @@
 #define IPC_GET_BYTE 0x55
 #define IPC_PUT_BYTE 0x66
 #define WAIT_CNT 50000
+#define PUT_WAIT_CNT 200
 
 struct spi_device_t analog_zero =
 {
@@ -80,7 +81,7 @@ ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt)
          * This delay is dependant on system
          * clocks on master and slave.
          */
-        _delay_us(2);
+        _delay_us(8);
     }
 
     /* Synchronize end of transmission */
@@ -117,40 +118,56 @@ struct spi_device_t *channel_lookup(uint8_t ch)
     }
     return NULL;
 }
-//ipc_ret_t ipc_recv_pkt(uint8_t slave, struct ipc_packet_t *pkt)
-//{
-//    ipc_ret_t ret = IPC_RET_OK;
-//
-//    if (pkt == NULL)
-//        return IPC_RET_ERROR_BAD_PARAMS;
-//
-//    ret = ipc_transfer_raw(channel_lookup(slave), slave, pkt);
-//    if (ret != IPC_RET_OK)
-//    {
-//        printk("recv failed\n");
-//        goto error;
-//    }
-//
-//error:
-//    return ret;
-//}
 
-//ipc_ret_t ipc_send_pkt(uint8_t slave, struct ipc_packet_t *pkt)
-//{
-//    printk("ipc_send_pkt\n");
-//    ipc_ret_t result = IPC_RET_OK;
-//
-//    if (pkt == NULL)
-//        return IPC_RET_ERROR_BAD_PARAMS;
-//
-//    result = ipc_transfer_raw(channel_lookup(slave), slave, pkt);
-//    if (result != IPC_RET_OK)
-//    {
-//        printk("put failed\n");
-//        result = IPC_RET_ERROR_TX;
-//    }
-//    return result;
-//}
+ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
+{
+    ipc_ret_t result = IPC_RET_OK;
+    struct spi_device_t *dev = channel_lookup(slave);
+    uint8_t data;
+    uint16_t wait_cnt = PUT_WAIT_CNT;
+
+    if (pkt == NULL)
+        return IPC_RET_ERROR_BAD_PARAMS;
+
+    enable(dev->hw_ch);
+    do
+    {
+        data = spi_transfer(IPC_PUT_BYTE);
+        printk("put: 0x%x\n", data);
+        if (!wait_cnt--)
+        {
+            printk("Transfer failed! 0x%x\n", data);
+            goto no_answer;
+        }
+    }while(data != IPC_SYNC_BYTE); /* Wait for ACK */
+
+    /* Put some data */
+   _delay_us(8); 
+   spi_transfer(pkt->len);
+   _delay_us(8);
+   spi_transfer(pkt->cmd);
+   _delay_us(8);
+   spi_transfer(pkt->crc);
+   _delay_us(8);
+   spi_transfer(pkt->data[0]);
+   _delay_us(8);
+   spi_transfer(pkt->data[1]);
+
+    wait_cnt = WAIT_CNT;
+    do
+    {
+        data = spi_transfer(0x10);
+        //printk("put sync: 0x%x\n", data);
+        if (!wait_cnt--)
+        {
+            printk("Finalize failed! Received: 0x%x\n", data);
+            goto no_answer;
+        }
+    }while(data != IPC_FINALIZE_BYTE); /* Wait for ACK */
+no_answer:
+    disable(dev->hw_ch);
+    return result;
+}
 
 int8_t ipc_which_irq(volatile int8_t irq_flags[])
 {
@@ -165,31 +182,4 @@ int8_t ipc_which_irq(volatile int8_t irq_flags[])
             return i;
     }
     return NO_IRQ;
-}
-
-ipc_ret_t ipc_periph_detect(struct spi_device_t *dev, uint8_t *periph_type)
-{
-    uint8_t ipc_packet[] =
-    {
-        IPC_CMD_PERIPH_DETECT,
-        0x02,
-        0x59,
-        0x16,
-        0xEF,
-    };
-    //int16_t retries = 20000; //Found during trial and error
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
-    ipc_ret_t ret = IPC_RET_ERROR_GENERIC;
-
-    if (dev == NULL || periph_type == NULL)
-        return IPC_RET_ERROR_BAD_PARAMS;
-
-    while(bytes_to_send--)
-    {
-        init_aaps_a(dev->hw_ch);
-        spi_send_one(dev, ~(ipc_packet[cnter++]));
-    }
-    ret = IPC_RET_OK;
-    return ret;
 }

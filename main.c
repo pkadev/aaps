@@ -134,7 +134,7 @@ int main(void)
     //temp.dec = 0;
 
 
-//  timer1_create_timer(trigger_event, 3000, ONE_SHOT, 0);
+  timer1_create_timer(trigger_event, 500, PERIODIC, 0);
 //  timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
 //  timer1_create_timer(get_temp, 10000, PERIODIC, 200);
 //  timer1_create_timer(card_detect, 500, PERIODIC, 0);
@@ -159,6 +159,15 @@ int main(void)
         if (event)
         {
             /* Handle IRQ events */
+            struct ipc_packet_t pkt =
+            {
+                .len = 5,
+                .cmd = 'p',
+                .crc = 'e',
+                .data = { 'r', '\0' },
+            };
+
+            ipc_put_pkt(0, &pkt);
             event = 0;
         }
         slave = ipc_which_irq(irq_from_slave);
