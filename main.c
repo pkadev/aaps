@@ -175,6 +175,7 @@ int main(void)
             pkt.data[3] = '!';
             pkt.data[4] = '\0';
 
+            pkt.crc = crc8(pkt.data, 5);
             if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
                 printk("put packet failed\n");
             event = 0;
@@ -186,12 +187,17 @@ int main(void)
             //printk("irq from slave %u\n", slave);
             if (ipc_get_pkt(slave, &pkt) == IPC_RET_OK)
             {
-                printk("len: %u\n", pkt.len);
-                printk("cmd: %u\n", pkt.cmd);
-                printk("crc: %u\n", pkt.crc);
-                for (uint8_t i = 0; i < pkt.len - IPC_PKT_OVERHEAD; i++)
-                    printk("d%02u: 0x%x\n", i, pkt.data[i]);
-                printk("pkts: %u\n", cnt);
+                if (crc8(pkt.data, pkt.len - IPC_PKT_OVERHEAD) == pkt.crc)
+                {
+                    printk("len: %u\n", pkt.len);
+                    printk("cmd: %u\n", pkt.cmd);
+                    printk("crc: 0x%02x\n", pkt.crc);
+                    for (uint8_t i = 0; i < pkt.len - IPC_PKT_OVERHEAD; i++)
+                        printk("d%02u: 0x%x\n", i, pkt.data[i]);
+                    printk("pkts: %u\n", cnt);
+                }
+                else
+                  printk("CRC failed\n");
             }
             else
             {

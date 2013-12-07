@@ -33,6 +33,7 @@ ow_device_t *ow_devices;
 int get_temp(void);
 int trigger_conv_t(void);
 uint8_t ow_num_devices();
+uint8_t crc8(uint8_t *data_in, uint8_t size);
 void ow_print_device_addr(ow_device_t *ow_device);
 ow_ret_val_t ow_get_devices(ow_device_t *ow_devices);
 ow_ret_val_t ow_convert_temp_async(ow_device_t *ow_device);

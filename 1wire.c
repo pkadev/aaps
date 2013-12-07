@@ -40,7 +40,6 @@ static uint8_t ow_read_bit(void);
 static void ow_write_bit(uint8_t bitval);
 static void ow_write_byte(uint8_t val);
 static uint8_t ow_read_byte(void);
-static uint8_t crc8(uint8_t *data_in, uint8_t size);
 static uint8_t ow_search(void);
 static uint8_t ow_first();
 static uint8_t ow_next();
@@ -428,7 +427,7 @@ static uint8_t ow_read_byte(void)
     return(value);
 }
 
-static uint8_t crc8(uint8_t *data_in, uint8_t size)
+uint8_t crc8(uint8_t *data_in, uint8_t size)
 {
     uint8_t  crc, bit_counter, data, feedback_bit;
     crc = CRC8INIT;
@@ -448,7 +447,8 @@ static uint8_t crc8(uint8_t *data_in, uint8_t size)
             data = data >> 1;
             bit_counter--;
         } while (bit_counter > 0);
-    }   
+    }
+
     return crc;
 }
 
