@@ -47,6 +47,10 @@ typedef enum
     IPC_RET_ERROR_RX,
     IPC_RET_ERROR_TX,
     IPC_RET_ERROR_NOT_SUPPORTED,
+    IPC_RET_ERROR_PUT_SYNC,
+    IPC_RET_ERROR_GET_SYNC,
+    IPC_RET_ERROR_PUT_FINALIZE,
+    IPC_RET_ERROR_GET_FINALIZE,
 } ipc_ret_t;
 
 struct spi_device_t *channel_lookup(uint8_t ch);

@@ -167,7 +167,8 @@ int main(void)
                 .data = { 'r', '\0' },
             };
 
-            ipc_put_pkt(0, &pkt);
+            if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+                printk("put packet failed\n");
             event = 0;
         }
         slave = ipc_which_irq(irq_from_slave);

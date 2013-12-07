@@ -120,12 +120,12 @@ struct spi_device_t *channel_lookup(uint8_t ch)
 
 ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
 {
-    ipc_ret_t result = IPC_RET_OK;
-    struct spi_device_t *dev = channel_lookup(slave);
     uint8_t data;
+    ipc_ret_t result = IPC_RET_OK;
     uint16_t wait_cnt = PUT_WAIT_CNT;
+    struct spi_device_t *dev = channel_lookup(slave);
 
-    if (pkt == NULL)
+    if (pkt == NULL || dev == NULL)
         return IPC_RET_ERROR_BAD_PARAMS;
 
     enable(dev->hw_ch);
@@ -134,7 +134,7 @@ ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
         data = spi_transfer(IPC_PUT_BYTE);
         if (!wait_cnt--)
         {
-            printk("Not able to syncronize! 0x%x cnt: %u\n", data, wait_cnt);
+            result = IPC_RET_ERROR_PUT_SYNC;
             goto no_answer;
         }
     }while(data != IPC_SYNC_BYTE); /* Wait for ACK */
@@ -152,7 +152,7 @@ ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
         data = spi_transfer(0x10);
         if (!wait_cnt--)
         {
-            printk("Finalize failed! Received: 0x%x\n", data);
+            result = IPC_RET_ERROR_PUT_FINALIZE;
             goto no_answer;
         }
     }while(data != IPC_FINALIZE_BYTE); /* Wait for ACK */
