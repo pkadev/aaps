@@ -14,8 +14,8 @@
 #define IPC_FINALIZE_BYTE 0xc0
 #define IPC_GET_BYTE 0x55
 #define IPC_PUT_BYTE 0x66
-#define WAIT_CNT 50000
-#define PUT_WAIT_CNT 2000
+#define WAIT_CNT 15000
+#define PUT_WAIT_CNT 15000
 
 struct spi_device_t analog_zero =
 {
