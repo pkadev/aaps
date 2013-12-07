@@ -17,6 +17,7 @@
 #define WAIT_CNT 15000
 #define PUT_WAIT_CNT 15000
 
+
 struct spi_device_t analog_zero =
 {
     //.opto_coupled = true,
@@ -54,6 +55,11 @@ ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt)
     /* First byte is data length */
     uint8_t rx_len = spi_transfer(buf);
     pkt->len = rx_len;
+
+    /* Allocate enough bytes for data */
+    pkt->data = (uint8_t*)malloc(pkt->len - IPC_PKT_OVERHEAD);
+    if (pkt->data == NULL)
+        goto no_answer;
 
     if (pkt->len == 0)
     {
@@ -139,16 +145,19 @@ ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
         }
     }while(data != IPC_SYNC_BYTE); /* Wait for ACK */
 
-    /* Put some data */
+    /* Put packet overhead data */
     spi_transfer(pkt->len);
     spi_transfer(pkt->cmd);
     spi_transfer(pkt->crc);
-    spi_transfer(pkt->data[0]);
-    spi_transfer(pkt->data[1]);
+
+    /* Put packet payload */
+    for (uint8_t i = 0; i < pkt->len - IPC_PKT_OVERHEAD; i++)
+        spi_transfer(pkt->data[i]);
 
     wait_cnt = WAIT_CNT;
     do
     {
+        /* TODO: Fix this magic number */
         data = spi_transfer(0x10);
         if (!wait_cnt--)
         {

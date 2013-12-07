@@ -33,7 +33,7 @@ struct ipc_packet_t
     uint8_t len;
     uint8_t cmd;
     uint8_t crc;
-    uint8_t data[IPC_DATA_LEN];
+    uint8_t *data;
 };
 
 typedef uint8_t periph_type_t;
@@ -51,6 +51,8 @@ typedef enum
     IPC_RET_ERROR_GET_SYNC,
     IPC_RET_ERROR_PUT_FINALIZE,
     IPC_RET_ERROR_GET_FINALIZE,
+    IPC_RET_ERROR_TX_BUF_EMPTY,
+    IPC_RET_ERROR_OUT_OF_MEMORY,
 } ipc_ret_t;
 
 struct spi_device_t *channel_lookup(uint8_t ch);
@@ -60,5 +62,7 @@ ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt);
 ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt);
 ipc_ret_t ipc_periph_detect(struct spi_device_t *dev, uint8_t *periph_type);
 int8_t ipc_which_irq(volatile int8_t irq_flags[]);
+
+#define IPC_PKT_OVERHEAD 3  /* Len, cmd, crc */
 
 #endif

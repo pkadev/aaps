@@ -134,7 +134,7 @@ int main(void)
     //temp.dec = 0;
 
 
-  timer1_create_timer(trigger_event, 500, PERIODIC, 0);
+  timer1_create_timer(trigger_event, 100, PERIODIC, 0);
 //  timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
 //  timer1_create_timer(get_temp, 10000, PERIODIC, 200);
 //  timer1_create_timer(card_detect, 500, PERIODIC, 0);
@@ -161,15 +161,24 @@ int main(void)
             /* Handle IRQ events */
             struct ipc_packet_t pkt =
             {
-                .len = 5,
-                .cmd = 'p',
-                .crc = 'e',
-                .data = { 'r', '\0' },
+                .len = 8,
+                .cmd = IPC_CMD_PUT_DATA,
+                .crc = 0x11,
+                //.data = { 'r', '\0' },
             };
+            pkt.data = malloc(4);
+            if (pkt.data == NULL)
+                printk("malloc failed\n");
+            pkt.data[0] = 'p';
+            pkt.data[1] = 'e';
+            pkt.data[2] = 'r';
+            pkt.data[3] = '!';
+            pkt.data[4] = '\0';
 
             if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
                 printk("put packet failed\n");
             event = 0;
+            free(pkt.data);
         }
         slave = ipc_which_irq(irq_from_slave);
         if (slave != NO_IRQ) {
@@ -180,8 +189,8 @@ int main(void)
                 printk("len: %u\n", pkt.len);
                 printk("cmd: %u\n", pkt.cmd);
                 printk("crc: %u\n", pkt.crc);
-                printk("d00: %u\n", pkt.data[1]);
-                printk("d01: %u\n", pkt.data[0]);
+                for (uint8_t i = 0; i < pkt.len - IPC_PKT_OVERHEAD; i++)
+                    printk("d%02u: 0x%x\n", i, pkt.data[i]);
                 printk("pkts: %u\n", cnt);
             }
             else
