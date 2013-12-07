@@ -15,7 +15,7 @@
 #define IPC_GET_BYTE 0x55
 #define IPC_PUT_BYTE 0x66
 #define WAIT_CNT 50000
-#define PUT_WAIT_CNT 200
+#define PUT_WAIT_CNT 2000
 
 struct spi_device_t analog_zero =
 {
@@ -35,7 +35,7 @@ volatile uint8_t spi_data_buf = 0;
 ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt)
 {
     /* TODO: Handle return values */
-    uint8_t data;
+    volatile uint8_t data;
     uint8_t buf = IPC_GET_BYTE;
     uint16_t wait_cnt = WAIT_CNT;
     struct spi_device_t *dev = channel_lookup(slave);
@@ -111,8 +111,8 @@ struct spi_device_t *channel_lookup(uint8_t ch)
 {
     switch(ch)
     {
-        case 0: { printk("ch0\n"); return &analog_zero; }
-        case 1: { printk("ch1\n"); return &analog_one; }
+        case 0: { /*printk("ch0\n");*/ return &analog_zero; }
+        case 1: { /*printk("ch1\n");*/ return &analog_one; }
         default:
             printk("Error. No such channel [%u]\n", ch);
     }
@@ -133,10 +133,9 @@ ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
     do
     {
         data = spi_transfer(IPC_PUT_BYTE);
-        printk("put: 0x%x\n", data);
         if (!wait_cnt--)
         {
-            printk("Transfer failed! 0x%x\n", data);
+            printk("Not able to syncronize! 0x%x cnt: %u\n", data, wait_cnt);
             goto no_answer;
         }
     }while(data != IPC_SYNC_BYTE); /* Wait for ACK */
@@ -157,7 +156,6 @@ ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
     do
     {
         data = spi_transfer(0x10);
-        //printk("put sync: 0x%x\n", data);
         if (!wait_cnt--)
         {
             printk("Finalize failed! Received: 0x%x\n", data);
