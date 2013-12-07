@@ -96,7 +96,6 @@ ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt)
         }
     }while(data != IPC_FINALIZE_BYTE); /* Wait for ACK */
 
-
 no_answer:
     irq_from_slave[slave]--;
 
@@ -141,16 +140,11 @@ ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
     }while(data != IPC_SYNC_BYTE); /* Wait for ACK */
 
     /* Put some data */
-   _delay_us(8); 
-   spi_transfer(pkt->len);
-   _delay_us(8);
-   spi_transfer(pkt->cmd);
-   _delay_us(8);
-   spi_transfer(pkt->crc);
-   _delay_us(8);
-   spi_transfer(pkt->data[0]);
-   _delay_us(8);
-   spi_transfer(pkt->data[1]);
+    spi_transfer(pkt->len);
+    spi_transfer(pkt->cmd);
+    spi_transfer(pkt->crc);
+    spi_transfer(pkt->data[0]);
+    spi_transfer(pkt->data[1]);
 
     wait_cnt = WAIT_CNT;
     do
@@ -162,7 +156,9 @@ ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
             goto no_answer;
         }
     }while(data != IPC_FINALIZE_BYTE); /* Wait for ACK */
+
 no_answer:
+
     disable(dev->hw_ch);
     return result;
 }
