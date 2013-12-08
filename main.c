@@ -165,6 +165,7 @@ int main(void)
     uint16_t cnt = 0;
     uint8_t slave = NO_IRQ;
     init_aaps_a(analog_zero.hw_ch);
+    init_aaps_a(analog_one.hw_ch);
     struct ipc_packet_t pkt;
     ow_temp_t core_temp;
     while(1)

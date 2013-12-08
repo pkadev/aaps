@@ -39,7 +39,7 @@ ISR(IRQ_CH02)
 
 ISR(IRQ_CH10)
 {
-    printk("irq - CH10\n");
+    //printk("irq - CH10\n");
     irq_from_slave[1]++;
 }
 ISR(IRQ_CH08)
@@ -109,7 +109,7 @@ void hw_init(void)
     /* Configure IRQ for connected channels */
 //  EICRB |= (1<<ISC51) | (1<<ISC50);
     EICRA |= (1<<ISC01) | (1<<ISC21);
-    //EIMSK |= (1 << INT2); //Enable for CON16
+    EIMSK |= (1 << INT2); //Enable for CON16
     EIMSK |= (1 << INT0); //Enable for CON13
     /* End Configure IRQ */
 }

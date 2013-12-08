@@ -308,27 +308,21 @@ static int set_relay_d(uint16_t enable, struct spi_device_t *dev)
 
 static int set_relay(uint16_t enable, struct spi_device_t *dev)
 {
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
-    uint8_t ipc_packet[] =
-    {
-        IPC_CMD_SET_RELAY,
-        0x02,
-        0x00,
-        0x00,
-        IPC_DUMMY_CRC,
-    };
-    ipc_packet[3] = enable ? 1 : 0;
 
-    if (dev == NULL) {
-        printk("NULL device. Failed to set current.\n");
-        return -1;
-    }
-    while(bytes_to_send--)
+    ipc_ret_t res;
+    struct ipc_packet_t pkt =
     {
-        init_aaps_a(dev->hw_ch);
-        spi_send_one(dev, ~(ipc_packet[cnter++]));
-    }
+        .len = 4,
+        .cmd = IPC_CMD_SET_RELAY,
+    };
+    pkt.data = malloc(1);
+    if (pkt.data == NULL)
+        printk("malloc failed\n");
+    pkt.data[0] = enable ? 1 : 0;
+    pkt.crc = crc8(pkt.data, 1);
+    res = ipc_put_pkt(1, &pkt);
+    if (res != IPC_RET_OK)
+        printk("put packet failed [%u]\n", res);
     dev = NULL;
     return 0;
 }
