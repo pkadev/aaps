@@ -71,12 +71,9 @@ int trigger_conv_t(void)
     return 0;
 }
 
-int get_temp(void)
+ow_ret_val_t get_temp(ow_temp_t *temp)
 {
-    ow_temp_t temp;
-    if (get_scratch_pad_async(&(ow_devices[0]), &temp) == OW_RET_OK)
-            printk("Temp: %u.%u°C\n",temp.temp, temp.dec);
-    return 0;
+    return get_scratch_pad_async(&(ow_devices[0]), temp);
 }
 void ow_print_device_addr(ow_device_t *ow_device)
 {

@@ -30,7 +30,7 @@ typedef struct {
 
 ow_device_t *ow_devices;
 
-int get_temp(void);
+ow_ret_val_t get_temp(ow_temp_t *temp);
 int trigger_conv_t(void);
 uint8_t ow_num_devices();
 uint8_t crc8(uint8_t *data_in, uint8_t size);

@@ -24,6 +24,8 @@
 #include "aaps_a.h"
 
 static uint8_t event = 0;
+static uint8_t temp_event = 0;
+static uint8_t temp_fetch_event = 0;
 //static struct system_settings sys_settings;
 
 int enable_led1(void)
@@ -92,6 +94,17 @@ int trigger_event(void)
     event = 1;
     return 0;
 }
+
+int start_temp_event(void)
+{
+    temp_event = 1;
+    return 0;
+}
+int get_temp_event(void)
+{
+    temp_fetch_event = 1;
+    return 0;
+}
 int main(void)
 {
     /* Enable external SRAM early */
@@ -135,8 +148,8 @@ int main(void)
 
 
   timer1_create_timer(trigger_event, 100, PERIODIC, 0);
-//  timer1_create_timer(trigger_conv_t, 10000, PERIODIC, 0);
-//  timer1_create_timer(get_temp, 10000, PERIODIC, 200);
+  timer1_create_timer(start_temp_event, 1000, PERIODIC, 0);
+  timer1_create_timer(get_temp_event, 1000, PERIODIC, 200);
 //  timer1_create_timer(card_detect, 500, PERIODIC, 0);
 //  timer1_create_timer(send_packet1, 100, PERIODIC, 5100);
 //  timer1_create_timer(send_packet2, 2000, ONE_SHOT, 0 );
@@ -153,17 +166,45 @@ int main(void)
     uint8_t slave = NO_IRQ;
     init_aaps_a(analog_zero.hw_ch);
     struct ipc_packet_t pkt;
+    ow_temp_t core_temp;
     while(1)
     {
         pending_cmd();
+        if (temp_fetch_event)
+        {
+            if (get_temp(&core_temp) == OW_RET_OK)
+            {
+                struct ipc_packet_t pkt =
+                {
+                    .len = 5,
+                    .cmd = IPC_CMD_PUT_DATA,
+                };
+                pkt.data = malloc(2);
+                if (pkt.data == NULL)
+                    printk("malloc failed\n");
+                pkt.data[0] = core_temp.temp;
+                pkt.data[1] = core_temp.dec;
+
+                pkt.crc = crc8(pkt.data, 2);
+                if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+                    printk("put packet failed\n");
+                event = 0;
+                free(pkt.data);
+            }
+            temp_fetch_event = 0;
+        }
+        if (temp_event)
+        {
+            trigger_conv_t();
+            temp_event = 0;
+        }
         if (event)
         {
             /* Handle IRQ events */
             struct ipc_packet_t pkt =
             {
                 .len = 8,
-                .cmd = IPC_CMD_PUT_DATA,
-                .crc = 0x11,
+                .cmd = IPC_CMD_SET_VOLTAGE,
                 //.data = { 'r', '\0' },
             };
             pkt.data = malloc(4);
@@ -176,8 +217,9 @@ int main(void)
             pkt.data[4] = '\0';
 
             pkt.crc = crc8(pkt.data, 5);
-            if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
-                printk("put packet failed\n");
+            if(ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+            {
+            }
             event = 0;
             free(pkt.data);
         }
