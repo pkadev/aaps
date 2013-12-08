@@ -25,7 +25,6 @@ struct spi_device_t *dev = 0;
  */
 static int help(void);
 static int temp_out(void);
-//static int voltage(uint16_t voltage, struct spi_device_t *dev);
 static int current(uint16_t current, struct spi_device_t *dev);
 static int reboot(void);
 static int fan0_speed(uint16_t speed);
@@ -35,7 +34,6 @@ static int set_relay(uint16_t enable, struct spi_device_t *dev);
 static int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev);
 
 #define CHAR_BACKSPACE 0x7F
-#define IPC_DUMMY_CRC 0xbc
 
 struct cmd_list_t {
     const char *name;
@@ -186,59 +184,58 @@ static int help(void)
 
 static int current(uint16_t current, struct spi_device_t *dev)
 {
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
-    uint8_t ipc_packet[] =
+    ipc_ret_t res;
+    uint8_t total_len = 5;
+    uint8_t payload_len  = total_len - IPC_PKT_OVERHEAD;
+
+    struct ipc_packet_t pkt =
     {
-        IPC_CMD_SET_CURRENT_LIMIT, 0x02,
-        current & 0xff, (current >> 8) & 0xff,
-        IPC_DUMMY_CRC,
+        .len = total_len,
+        .cmd = IPC_CMD_SET_CURRENT_LIMIT,
     };
 
-    if (dev == NULL) {
-        printk("NULL device. Failed to set current.\n");
-        return -1;
-    }
-    while(bytes_to_send--)
-    {
-        init_aaps_a(dev->hw_ch);
-        spi_send_one(dev, ~(ipc_packet[cnter++]));
-    }
+    pkt.data = malloc(payload_len);
+    if (pkt.data == NULL)
+        printk("malloc failed\n");
+    
+    pkt.data[0] = current & 0xff;
+    pkt.data[1] = (current >> 8) & 0xff;
+    pkt.crc = crc8(pkt.data, payload_len);
+
+    res = ipc_put_pkt(1, &pkt);
+    if (res != IPC_RET_OK)
+        printk("put packet failed [%u]\n", res);
+
+    free(pkt.data);
     dev = NULL;
     return 0;
 }
 
 int voltage(uint16_t voltage, struct spi_device_t *dev)
 {
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
-    uint32_t convert = (uint32_t)voltage * 100000;
-    uint16_t ratio = 57632;
-
-    if (dev == NULL) {
-        printk("NULL device. Failed to set voltage.\n");
-        return -1;
-    }
-    if (voltage > 33000)
-        voltage = 33000;
-    if (voltage == 0)
-        convert = 0;
-
-    convert /= ratio;
-    voltage = convert;
-
-    uint8_t packet1[] =
+    ipc_ret_t res;
+    uint8_t total_len = 5;
+    uint8_t payload_len  = total_len - IPC_PKT_OVERHEAD;
+    struct ipc_packet_t pkt =
     {
-        IPC_CMD_SET_VOLTAGE, 0x02,
-        voltage & 0xff, (voltage >> 8) & 0xff,
-        0xEF
+        .len = total_len,
+        .cmd = IPC_CMD_SET_VOLTAGE,
     };
 
-    while(bytes_to_send--)
-    {
-        init_aaps_a(dev->hw_ch);
-        spi_send_one(dev, ~(packet1[cnter++]));
-    }
+    pkt.data = malloc(payload_len);
+    if (pkt.data == NULL)
+        printk("malloc failed\n");
+    
+    pkt.data[0] = voltage & 0xff;
+    pkt.data[1] = (voltage >> 8) & 0xff;
+
+    pkt.crc = crc8(pkt.data, payload_len);
+
+    res = ipc_put_pkt(1, &pkt);
+    if (res != IPC_RET_OK)
+        printk("put packet failed [%u]\n", res);
+
+    free(pkt.data);
     dev = NULL;
     return 0;
 }
@@ -281,27 +278,21 @@ static int fan1_speed(uint16_t speed)
 
 static int set_relay_d(uint16_t enable, struct spi_device_t *dev)
 {
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
-    uint8_t ipc_packet[] =
+    ipc_ret_t res;
+    struct ipc_packet_t pkt =
     {
-        IPC_CMD_SET_RELAY_D,
-        0x02,
-        0x00,
-        0x00,
-        IPC_DUMMY_CRC,
+        .len = 4,
+        .cmd = IPC_CMD_SET_RELAY_D,
     };
-    ipc_packet[3] = enable ? 1 : 0;
-
-    if (dev == NULL) {
-        printk("NULL device. Failed to set current.\n");
-        return -1;
-    }
-    while(bytes_to_send--)
-    {
-        init_aaps_a(dev->hw_ch);
-        spi_send_one(dev, ~(ipc_packet[cnter++]));
-    }
+    pkt.data = malloc(1);
+    if (pkt.data == NULL)
+        printk("malloc failed\n");
+    pkt.data[0] = enable ? 1 : 0;
+    pkt.crc = crc8(pkt.data, 1);
+    res = ipc_put_pkt(1, &pkt);
+    if (res != IPC_RET_OK)
+        printk("put packet failed [%u]\n", res);
+    free(pkt.data);
     dev = NULL;
     return 0;
 }
@@ -323,58 +314,65 @@ static int set_relay(uint16_t enable, struct spi_device_t *dev)
     res = ipc_put_pkt(1, &pkt);
     if (res != IPC_RET_OK)
         printk("put packet failed [%u]\n", res);
+    free(pkt.data);
     dev = NULL;
     return 0;
 }
 
 static int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
 {
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
-    uint8_t ipc_packet[] =
+    ipc_ret_t res;
+    uint8_t payload_len = 1; 
+    uint8_t total_len = payload_len + IPC_PKT_OVERHEAD;
+
+    struct ipc_packet_t pkt =
     {
-        IPC_CMD_GET_TEMP,
-        0x02,
-        0x00,
-        0xff & channel,
-        IPC_DUMMY_CRC,
+          .len = total_len,
+          .cmd = IPC_CMD_GET_TEMP,
     };
 
-    if (dev == NULL) {
-        printk("NULL device. Failed to set current.\n");
-        return -1;
-    }
-    while(bytes_to_send--)
-    {
-        init_aaps_a(dev->hw_ch);
-        spi_send_one(dev, ~(ipc_packet[cnter++]));
-    }
+    pkt.data = malloc(payload_len);
+    if (pkt.data == NULL)
+        printk("malloc failed\n");
+    
+    pkt.data[0] = channel & 0xff;
+    printk("Temp sensor: %u\n", pkt.data[0]);
+    pkt.crc = crc8(pkt.data, payload_len);
+
+    res = ipc_put_pkt(1, &pkt);
+    if (res != IPC_RET_OK)
+        printk("put packet failed [%u]\n", res);
+
+    free(pkt.data);
     dev = NULL;
     return 0;
 }
 
 int get_adc(uint16_t channel, struct spi_device_t *dev)
 {
-    uint8_t bytes_to_send = 5;
-    uint8_t cnter = 0;
-    uint8_t ipc_packet[] =
+    ipc_ret_t res;
+    uint8_t payload_len = 1; 
+    uint8_t total_len = payload_len + IPC_PKT_OVERHEAD;
+
+    struct ipc_packet_t pkt =
     {
-        IPC_CMD_GET_ADC,
-        0x02,
-        0x00,
-        0xff & channel,
-        IPC_DUMMY_CRC,
+          .len = total_len,
+          .cmd = IPC_CMD_GET_ADC,
     };
 
-    if (dev == NULL) {
-        printk("NULL device. Failed to set current.\n");
-        return -1;
-    }
-    while(bytes_to_send--)
-    {
-        init_aaps_a(dev->hw_ch);
-        spi_send_one(dev, ~(ipc_packet[cnter++]));
-    }
+    pkt.data = malloc(payload_len);
+    if (pkt.data == NULL)
+        printk("malloc failed\n");
+    
+    pkt.data[0] = channel & 0xff;
+    printk("adc ch: %u\n", pkt.data[0]);
+    pkt.crc = crc8(pkt.data, payload_len);
+
+    res = ipc_put_pkt(1, &pkt);
+    if (res != IPC_RET_OK)
+        printk("put packet failed [%u]\n", res);
+
+    free(pkt.data);
     dev = NULL;
     return 0;
 }

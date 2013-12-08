@@ -227,13 +227,13 @@ int main(void)
         slave = ipc_which_irq(irq_from_slave);
         if (slave != NO_IRQ) {
             cnt++;
-            //printk("irq from slave %u\n", slave);
+            printk("irq from slave %u\n", slave);
             if (ipc_get_pkt(slave, &pkt) == IPC_RET_OK)
             {
                 if (crc8(pkt.data, pkt.len - IPC_PKT_OVERHEAD) == pkt.crc)
                 {
                     printk("len: %u\n", pkt.len);
-                    printk("cmd: %u\n", pkt.cmd);
+                    printk("cmd: 0x%02x\n", pkt.cmd);
                     printk("crc: 0x%02x\n", pkt.crc);
                     for (uint8_t i = 0; i < pkt.len - IPC_PKT_OVERHEAD; i++)
                         printk("d%02u: 0x%x\n", i, pkt.data[i]);
