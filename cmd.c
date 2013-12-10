@@ -31,7 +31,6 @@ static int fan0_speed(uint16_t speed);
 static int fan1_speed(uint16_t speed);
 static int set_relay_d(uint16_t enable, struct spi_device_t *dev);
 static int set_relay(uint16_t enable, struct spi_device_t *dev);
-static int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev);
 
 #define CHAR_BACKSPACE 0x7F
 
@@ -319,7 +318,7 @@ static int set_relay(uint16_t enable, struct spi_device_t *dev)
     return 0;
 }
 
-static int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
+int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
 {
     ipc_ret_t res;
     uint8_t payload_len = 1; 
@@ -336,7 +335,7 @@ static int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
         printk("malloc failed\n");
     
     pkt.data[0] = channel & 0xff;
-    printk("Temp sensor: %u\n", pkt.data[0]);
+    //printk("Temp sensor: %u\n", pkt.data[0]);
     pkt.crc = crc8(pkt.data, payload_len);
 
     res = ipc_put_pkt(1, &pkt);
@@ -365,7 +364,6 @@ int get_adc(uint16_t channel, struct spi_device_t *dev)
         printk("malloc failed\n");
     
     pkt.data[0] = channel & 0xff;
-    printk("adc ch: %u\n", pkt.data[0]);
     pkt.crc = crc8(pkt.data, payload_len);
 
     res = ipc_put_pkt(1, &pkt);

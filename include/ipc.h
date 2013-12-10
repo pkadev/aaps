@@ -63,6 +63,7 @@ ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt);
 ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt);
 ipc_ret_t ipc_periph_detect(struct spi_device_t *dev, uint8_t *periph_type);
 int8_t ipc_which_irq(volatile int8_t irq_flags[]);
+int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev);
 
 #define IPC_PKT_OVERHEAD 3  /* Len, cmd, crc */
 

@@ -105,8 +105,49 @@ int get_temp_event(void)
     temp_fetch_event = 1;
     return 0;
 }
+static void send_temp(ow_temp_t *temp, uint8_t sensor)
+{
+    struct ipc_packet_t pkt =
+    {
+        .len = 6,
+        .cmd = IPC_CMD_PUT_DATA,
+    };
+    pkt.data = malloc(3);
+    if (pkt.data == NULL)
+        printk("malloc failed\n");
+    pkt.data[0] = sensor;
+    pkt.data[1] = temp->temp;
+    pkt.data[2] = temp->dec;
+
+    pkt.crc = crc8(pkt.data, 3);
+    if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+        printk("put packet failed\n");
+    free(pkt.data);
+}
+
+static void send_adc(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
+{
+    struct ipc_packet_t pkt =
+    {
+        .len = 7,
+        .cmd = IPC_CMD_PUT_DATA,
+    };
+    pkt.data = malloc(4);
+    if (pkt.data == NULL)
+        printk("malloc failed\n");
+    pkt.data[0] = type;
+    pkt.data[1] = ch;
+    pkt.data[2] = msb;
+    pkt.data[3] = lsb;
+
+    pkt.crc = crc8(pkt.data, 4);
+    if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+        printk("put packet failed\n");
+    free(pkt.data);
+}
 int main(void)
 {
+    ow_temp_t core_temp;
     /* Enable external SRAM early */
     XMCRA |= (1<<SRE);
 
@@ -148,8 +189,8 @@ int main(void)
 
 
   timer1_create_timer(trigger_event, 100, PERIODIC, 0);
-  timer1_create_timer(start_temp_event, 1000, PERIODIC, 0);
-  timer1_create_timer(get_temp_event, 1000, PERIODIC, 200);
+//  timer1_create_timer(start_temp_event, 1000, PERIODIC, 0);
+//  timer1_create_timer(get_temp_event, 1000, PERIODIC, 200);
 //  timer1_create_timer(card_detect, 500, PERIODIC, 0);
 //  timer1_create_timer(send_packet1, 100, PERIODIC, 5100);
 //  timer1_create_timer(send_packet2, 2000, ONE_SHOT, 0 );
@@ -167,7 +208,6 @@ int main(void)
     init_aaps_a(analog_zero.hw_ch);
     init_aaps_a(analog_one.hw_ch);
     struct ipc_packet_t pkt;
-    ow_temp_t core_temp;
     while(1)
     {
         pending_cmd();
@@ -175,22 +215,7 @@ int main(void)
         {
             if (get_temp(&core_temp) == OW_RET_OK)
             {
-                struct ipc_packet_t pkt =
-                {
-                    .len = 5,
-                    .cmd = IPC_CMD_PUT_DATA,
-                };
-                pkt.data = malloc(2);
-                if (pkt.data == NULL)
-                    printk("malloc failed\n");
-                pkt.data[0] = core_temp.temp;
-                pkt.data[1] = core_temp.dec;
-
-                pkt.crc = crc8(pkt.data, 2);
-                if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
-                    printk("put packet failed\n");
-                event = 0;
-                free(pkt.data);
+                send_temp(&core_temp, 0);
             }
             temp_fetch_event = 0;
         }
@@ -202,45 +227,44 @@ int main(void)
         if (event)
         {
             /* Handle IRQ events */
-            struct ipc_packet_t pkt =
-            {
-                .len = 8,
-                .cmd = IPC_CMD_SET_VOLTAGE,
-                //.data = { 'r', '\0' },
-            };
-            pkt.data = malloc(4);
-            if (pkt.data == NULL)
-                printk("malloc failed\n");
-            pkt.data[0] = 'p';
-            pkt.data[1] = 'e';
-            pkt.data[2] = 'r';
-            pkt.data[3] = '!';
-            pkt.data[4] = '\0';
-
-            pkt.crc = crc8(pkt.data, 5);
-            if(ipc_put_pkt(0, &pkt) != IPC_RET_OK)
-            {
-            }
+            //get_aaps_a_temp(0, channel_lookup(1));
+            //get_aaps_a_temp(1, channel_lookup(1));
+            static uint8_t ch = 0;
+            get_adc(ch++ % 8, channel_lookup(1));
             event = 0;
-            free(pkt.data);
         }
         slave = ipc_which_irq(irq_from_slave);
         if (slave != NO_IRQ) {
             cnt++;
-            printk("irq from slave %u\n", slave);
+            //printk("irq from slave %u\n", slave);
             if (ipc_get_pkt(slave, &pkt) == IPC_RET_OK)
             {
                 if (crc8(pkt.data, pkt.len - IPC_PKT_OVERHEAD) == pkt.crc)
-                {
-                    printk("len: %u\n", pkt.len);
-                    printk("cmd: 0x%02x\n", pkt.cmd);
-                    printk("crc: 0x%02x\n", pkt.crc);
-                    for (uint8_t i = 0; i < pkt.len - IPC_PKT_OVERHEAD; i++)
-                        printk("d%02u: 0x%x\n", i, pkt.data[i]);
-                    printk("pkts: %u\n", cnt);
+                {   ow_temp_t t;
+                    switch (pkt.cmd)
+                    {
+                        case IPC_DATA_THERMO:
+                            t.temp = pkt.data[1]; t.dec = pkt.data[2];
+                            send_temp(&t, pkt.data[0] + 1);
+                            break;
+                        case IPC_DATA_CURRENT:
+                        case IPC_DATA_VOLTAGE:
+                            
+                            send_adc(pkt.data[2],  pkt.data[3],
+                                     pkt.data[1], pkt.data[0]); 
+                            //printk("V\n");
+                            break;
+                        
+                    }
+                    //printk("len: %u\n", pkt.len);
+                    //printk("cmd: 0x%02x\n", pkt.cmd);
+                    //printk("crc: 0x%02x\n", pkt.crc);
+                    //for (uint8_t i = 0; i < pkt.len - IPC_PKT_OVERHEAD; i++)
+                    //    printk("d%02u: 0x%x\n", i, pkt.data[i]);
+                    //printk("pkts: %u\n", cnt);
                 }
                 else
-                  printk("CRC failed\n");
+                  printk("CRC failed\n from slave %u", slave);
             }
             else
             {
