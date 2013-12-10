@@ -40,6 +40,7 @@ ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt)
     uint8_t buf = IPC_GET_BYTE;
     uint16_t wait_cnt = WAIT_CNT;
     struct spi_device_t *dev = channel_lookup(slave);
+    ipc_ret_t result = IPC_RET_OK;
 
     enable(dev->hw_ch);
     do
@@ -48,6 +49,7 @@ ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt)
         if (!wait_cnt--)
         {
             printk("Transfer failed! 0x%x\n", data);
+            result = IPC_RET_ERROR_GET_SYNC;
             goto no_answer;
         }
     }while(data != IPC_SYNC_BYTE); /* Wait for ACK */
@@ -59,12 +61,16 @@ ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt)
     /* Allocate enough bytes for data */
     pkt->data = (uint8_t*)malloc(pkt->len - IPC_PKT_OVERHEAD);
     if (pkt->data == NULL)
+    {
+        result = IPC_RET_ERROR_OUT_OF_MEMORY;
         goto no_answer;
+    }
 
     if (pkt->len == 0)
     {
         /* TODO: Add return value */
         printk("Len is zero\n");
+        result = IPC_RET_ERROR_GENERIC;
         goto no_answer;
     }
 
@@ -98,6 +104,7 @@ ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt)
         if (!wait_cnt--)
         {
             printk("Finalize failed! Received: 0x%x\n", data);
+            result = IPC_RET_ERROR_GET_FINALIZE;
             goto no_answer;
         }
     }while(data != IPC_FINALIZE_BYTE); /* Wait for ACK */
@@ -109,7 +116,7 @@ no_answer:
         return IPC_RET_ERROR_GENERIC;
 
     disable(dev->hw_ch);
-    return IPC_RET_OK;
+    return result;
 }
 
 struct spi_device_t *channel_lookup(uint8_t ch)
