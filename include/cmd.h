@@ -15,4 +15,6 @@ void pending_cmd(void);
 int voltage(uint16_t voltage, struct spi_device_t *dev);
 int get_adc(uint16_t channel, struct spi_device_t *dev);
 
+extern uint16_t dac_current_limit;
+extern uint16_t dac_voltage;
 #endif

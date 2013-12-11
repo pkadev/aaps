@@ -52,45 +52,12 @@ int disable_led0(void)
     return 0;
 }
 
-
-/* TODO: This function must be made more dynamic 
- * and moved to proper source file.
- * Lookup of spi channels can't be hard coded.
- */
-uint8_t packet0[] =
-{
-    0x01, 0x02, 0xDA, 0x7A, 0x42,
-};
+uint16_t dac_current_limit = 0;
+uint16_t dac_voltage = 0;
 #define MAX_VOLTAGE 0xdb0f //Approximately calibrated max voltage
-uint8_t packet1[] =
-{
-    IPC_CMD_SET_VOLTAGE,
-    0x02,
-    0xf9,
-    0x16,
-    0xEF,
-};
-uint8_t packet3[] =
-{
-    IPC_CMD_PUT_DATA,
-    0x02,
-    0xf9,
-    0x16,
-    0xCC,
-};
-
-uint8_t packet2[] =
-{
-    IPC_CMD_SET_CURRENT_LIMIT,
-    0x02,
-    0xff,
-    0xf4,
-    0xbc,
-};
 
 int trigger_event(void)
 {
-    //get_adc(0, channel_lookup(1));
     event = 1;
     return 0;
 }
@@ -105,6 +72,7 @@ int get_temp_event(void)
     temp_fetch_event = 1;
     return 0;
 }
+
 static void send_temp(ow_temp_t *temp, uint8_t sensor)
 {
     struct ipc_packet_t pkt =
@@ -114,7 +82,7 @@ static void send_temp(ow_temp_t *temp, uint8_t sensor)
     };
     pkt.data = malloc(3);
     if (pkt.data == NULL)
-        printk("malloc failed\n");
+        printk("malloc0 failed\n");
     pkt.data[0] = sensor;
     pkt.data[1] = temp->temp;
     pkt.data[2] = temp->dec;
@@ -125,16 +93,82 @@ static void send_temp(ow_temp_t *temp, uint8_t sensor)
     free(pkt.data);
 }
 
+
+static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
+{
+    /*
+     * Vc=uppmätt värde på ADC ingången
+     * där 5A ger Vc=5*40mohm*20=4V
+     * Rs=40mohm
+     * Gc=20
+     * 5.12A max ?
+     * 
+     * Vc=Iut*Rs*Gc  => Iut=Vc/(Rs*Gc)
+     */
+}
+
+static void send_voltage(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
+{
+    uint32_t adc = 0;
+    uint16_t value = (msb << 8) | lsb;
+
+    if (ch == 1)
+        adc = 625 * (uint32_t)value / 6613;
+    else if (ch == 0)
+        adc = 625 * (uint32_t)value / 1279;
+
+    value  = adc & 0xffff;
+
+    struct ipc_packet_t pkt =
+    {
+        .len = 7,
+        .cmd = IPC_CMD_DISPLAY_VOLTAGE,
+    };
+    pkt.data = malloc(2);
+    if (pkt.data == NULL)
+        printk("send_voltage malloc failed\n");
+
+    /* Voltage in mV */
+    pkt.data[0] = type;
+    pkt.data[1] = ch;
+    pkt.data[2] = value >> 8;
+    pkt.data[3] = value & 0xff;
+
+    pkt.crc = crc8(pkt.data, 4);
+    if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+        printk("send_voltage failed!\n");
+    free(pkt.data);
+}
+
+static void send_dac(uint16_t value, uint8_t type)
+{
+    struct ipc_packet_t pkt =
+    {
+        .len = 6,
+        .cmd = IPC_CMD_DISPLAY_DAC,
+    };
+    pkt.data = malloc(3);
+    if (pkt.data == NULL)
+        printk("malloc1 failed\n");
+    pkt.data[0] = type;
+    pkt.data[1] = value >> 8;
+    pkt.data[2] = value & 0xff;
+
+    pkt.crc = crc8(pkt.data, 3);
+    if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+        printk("put packet failed\n");
+    free(pkt.data);
+}
 static void send_adc(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
 {
     struct ipc_packet_t pkt =
     {
         .len = 7,
-        .cmd = IPC_CMD_PUT_DATA,
+        .cmd = IPC_CMD_DISPLAY_ADC,
     };
     pkt.data = malloc(4);
     if (pkt.data == NULL)
-        printk("malloc failed\n");
+        printk("malloc1 failed\n");
     pkt.data[0] = type;
     pkt.data[1] = ch;
     pkt.data[2] = msb;
@@ -248,11 +282,21 @@ int main(void)
                             send_temp(&t, pkt.data[0] + 1);
                             break;
                         case IPC_DATA_CURRENT:
+                            send_current(pkt.data[2],  pkt.data[3],
+                                     pkt.data[1], pkt.data[0]);
+                            send_dac(dac_current_limit, pkt.data[0]);
+                            break;
                         case IPC_DATA_VOLTAGE:
-                            
                             send_adc(pkt.data[2],  pkt.data[3],
                                      pkt.data[1], pkt.data[0]); 
+                            send_voltage(pkt.data[2],  pkt.data[3],
+                                     pkt.data[1], pkt.data[0]); 
+                            send_dac(dac_voltage, pkt.data[0]);
                             //printk("V\n");
+                            break;
+                        case IPC_DATA_ENC:
+                            voltage(dac_voltage, (void*)1);
+                            dac_voltage++;
                             break;
                         
                     }
@@ -265,6 +309,9 @@ int main(void)
                 }
                 else
                   printk("CRC failed\n from slave %u", slave);
+
+                free(pkt.data);
+                pkt.data = NULL;
             }
             else
             {

@@ -193,9 +193,10 @@ static int current(uint16_t current, struct spi_device_t *dev)
         .cmd = IPC_CMD_SET_CURRENT_LIMIT,
     };
 
+    dac_current_limit = current;
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
-        printk("malloc failed\n");
+        printk("malloc4 failed\n");
     
     pkt.data[0] = current & 0xff;
     pkt.data[1] = (current >> 8) & 0xff;
@@ -212,6 +213,7 @@ static int current(uint16_t current, struct spi_device_t *dev)
 
 int voltage(uint16_t voltage, struct spi_device_t *dev)
 {
+    //printk("Voltage %u\n", dac_voltage);
     ipc_ret_t res;
     uint8_t total_len = 5;
     uint8_t payload_len  = total_len - IPC_PKT_OVERHEAD;
@@ -221,9 +223,11 @@ int voltage(uint16_t voltage, struct spi_device_t *dev)
         .cmd = IPC_CMD_SET_VOLTAGE,
     };
 
+    dac_voltage = voltage;
+
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
-        printk("malloc failed\n");
+        printk("malloc6 failed\n");
     
     pkt.data[0] = voltage & 0xff;
     pkt.data[1] = (voltage >> 8) & 0xff;
@@ -285,7 +289,7 @@ static int set_relay_d(uint16_t enable, struct spi_device_t *dev)
     };
     pkt.data = malloc(1);
     if (pkt.data == NULL)
-        printk("malloc failed\n");
+        printk("malloc9 failed\n");
     pkt.data[0] = enable ? 1 : 0;
     pkt.crc = crc8(pkt.data, 1);
     res = ipc_put_pkt(1, &pkt);
@@ -307,7 +311,7 @@ static int set_relay(uint16_t enable, struct spi_device_t *dev)
     };
     pkt.data = malloc(1);
     if (pkt.data == NULL)
-        printk("malloc failed\n");
+        printk("malloc99 failed\n");
     pkt.data[0] = enable ? 1 : 0;
     pkt.crc = crc8(pkt.data, 1);
     res = ipc_put_pkt(1, &pkt);
@@ -332,7 +336,7 @@ int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
 
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
-        printk("malloc failed\n");
+        printk("malloc11 failed\n");
     
     pkt.data[0] = channel & 0xff;
     //printk("Temp sensor: %u\n", pkt.data[0]);
@@ -361,7 +365,7 @@ int get_adc(uint16_t channel, struct spi_device_t *dev)
 
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
-        printk("malloc failed\n");
+        printk("malloc2 failed\n");
     
     pkt.data[0] = channel & 0xff;
     pkt.crc = crc8(pkt.data, payload_len);
