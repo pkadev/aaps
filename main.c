@@ -54,6 +54,26 @@ int disable_led0(void)
 
 uint16_t dac_current_limit = 0;
 uint16_t dac_voltage = 0;
+uint16_t scale = 1; 
+
+void change_scale(void)
+{
+    switch (scale)
+    {
+     case 1:
+         scale = 10;
+     break;
+     case 10:
+        scale = 100;
+     break;
+     case 100:
+        scale = 500;
+     break;
+     case 500:
+        scale = 1;
+     break;
+    }
+}
 #define MAX_VOLTAGE 0xdb0f //Approximately calibrated max voltage
 
 int trigger_event(void)
@@ -105,6 +125,39 @@ static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
      * 
      * Vc=Iut*Rs*Gc  => Iut=Vc/(Rs*Gc)
      */
+    if (ch == 2)
+    {
+        uint32_t adc = 0;
+        uint16_t value = (msb << 8) | lsb;
+        const uint8_t Gc = 20;
+        const uint8_t Rs = 40;
+        uint16_t Iout = 0;
+
+        /* TODO: Check for potential ovorflow bugs */
+        adc = 625 * (uint32_t)value;
+        Iout = adc / (Rs * Gc * 10); /*Add factor 10 to get back to correct base */
+        printk("Iout: %u\n", Iout);
+        
+        struct ipc_packet_t pkt =
+        {
+            .len = 7,
+            .cmd = IPC_CMD_DISPLAY_CURRENT,
+        };
+        pkt.data = malloc(2);
+        if (pkt.data == NULL)
+            printk("send_voltage malloc failed\n");
+
+        /* Voltage in mV */
+        pkt.data[0] = type;
+        pkt.data[1] = ch;
+        pkt.data[2] = Iout >> 8;
+        pkt.data[3] = Iout & 0xff;
+
+        pkt.crc = crc8(pkt.data, 4);
+        if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+            printk("send_voltage failed!\n");
+        free(pkt.data);
+    }
 }
 
 static void send_voltage(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
@@ -282,6 +335,8 @@ int main(void)
                             send_temp(&t, pkt.data[0] + 1);
                             break;
                         case IPC_DATA_CURRENT:
+                            send_adc(pkt.data[2],  pkt.data[3],
+                                     pkt.data[1], pkt.data[0]); 
                             send_current(pkt.data[2],  pkt.data[3],
                                      pkt.data[1], pkt.data[0]);
                             send_dac(dac_current_limit, pkt.data[0]);
@@ -292,11 +347,17 @@ int main(void)
                             send_voltage(pkt.data[2],  pkt.data[3],
                                      pkt.data[1], pkt.data[0]); 
                             send_dac(dac_voltage, pkt.data[0]);
-                            //printk("V\n");
                             break;
-                        case IPC_DATA_ENC:
+                        case IPC_DATA_ENC_BTN:
+                            change_scale(); 
+                            break;
+                        case IPC_DATA_ENC_CW:
                             voltage(dac_voltage, (void*)1);
-                            dac_voltage++;
+                            dac_voltage += scale;
+                            break;
+                        case IPC_DATA_ENC_CCW:
+                            voltage(dac_voltage, (void*)1);
+                            dac_voltage -= scale;
                             break;
                         
                     }
@@ -308,7 +369,7 @@ int main(void)
                     //printk("pkts: %u\n", cnt);
                 }
                 else
-                  printk("CRC failed\n from slave %u", slave);
+                  printk("CRC failed from slave %u", slave);
 
                 free(pkt.data);
                 pkt.data = NULL;
