@@ -30,7 +30,6 @@ static int reboot(void);
 static int fan0_speed(uint16_t speed);
 static int fan1_speed(uint16_t speed);
 static int set_relay_d(uint16_t enable, struct spi_device_t *dev);
-static int set_relay(uint16_t enable, struct spi_device_t *dev);
 
 #define CHAR_BACKSPACE 0x7F
 
@@ -300,7 +299,7 @@ static int set_relay_d(uint16_t enable, struct spi_device_t *dev)
     return 0;
 }
 
-static int set_relay(uint16_t enable, struct spi_device_t *dev)
+int set_relay(uint16_t enable, struct spi_device_t *dev)
 {
 
     ipc_ret_t res;
@@ -317,6 +316,7 @@ static int set_relay(uint16_t enable, struct spi_device_t *dev)
     res = ipc_put_pkt(1, &pkt);
     if (res != IPC_RET_OK)
         printk("put packet failed [%u]\n", res);
+    send_set_led(IPC_LED_GREEN, pkt.data[0]);
     free(pkt.data);
     dev = NULL;
     return 0;

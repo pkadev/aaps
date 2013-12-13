@@ -22,6 +22,8 @@ enum ipc_command_t
     IPC_CMD_DISPLAY_CURRENT,
     IPC_CMD_DISPLAY_THERMO,
     IPC_CMD_DISPLAY_DAC,
+    IPC_CMD_DISPLAY_POWER,
+    IPC_CMD_SET_LED,
 };
 
 enum ipc_data_type_t
@@ -34,7 +36,16 @@ enum ipc_data_type_t
     IPC_DATA_ENC_CCW = 0x80,
     IPC_DATA_ENC_BTN = 0x81,
     IPC_DATA_DAC = 0x82,
+    IPC_DATA_ENC_LONGPRESS = 0x83,
 };
+
+enum ipc_led_type_t
+{
+    IPC_LED_GREEN = 0x10,
+    IPC_LED_YELLOW = 0x11,
+    IPC_LED_RED = 0x12,
+};
+
 struct ipc_packet_t
 {
     uint8_t len;

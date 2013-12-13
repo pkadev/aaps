@@ -23,6 +23,7 @@
 #include "spi.h"
 #include "aaps_a.h"
 
+static uint8_t remote_temp_event = 0;
 static uint8_t event = 0;
 static uint8_t temp_event = 0;
 static uint8_t temp_fetch_event = 0;
@@ -75,7 +76,11 @@ void change_scale(void)
     }
 }
 #define MAX_VOLTAGE 0xdb0f //Approximately calibrated max voltage
-
+int trigger_remote_temp_event(void)
+{
+    remote_temp_event = 1;
+    return 0;
+}
 int trigger_event(void)
 {
     event = 1;
@@ -93,12 +98,30 @@ int get_temp_event(void)
     return 0;
 }
 
+void send_set_led(uint8_t led, uint8_t on)
+{
+    struct ipc_packet_t pkt =
+    {
+        .len = 5,
+        .cmd = IPC_CMD_SET_LED,
+    };
+    pkt.data = malloc(2);
+    if (pkt.data == NULL)
+        printk("malloc0 failed\n");
+    pkt.data[0] = led;
+    pkt.data[1] = on;
+
+    pkt.crc = crc8(pkt.data, 2);
+    if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+        printk("put packet failed\n");
+    free(pkt.data);
+}
 static void send_temp(ow_temp_t *temp, uint8_t sensor)
 {
     struct ipc_packet_t pkt =
     {
         .len = 6,
-        .cmd = IPC_CMD_PUT_DATA,
+        .cmd = IPC_CMD_DISPLAY_THERMO,
     };
     pkt.data = malloc(3);
     if (pkt.data == NULL)
@@ -136,7 +159,7 @@ static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
         /* TODO: Check for potential ovorflow bugs */
         adc = 625 * (uint32_t)value;
         Iout = adc / (Rs * Gc * 10); /*Add factor 10 to get back to correct base */
-        printk("Iout: %u\n", Iout);
+        //printk("Iout: %u\n", Iout);
         
         struct ipc_packet_t pkt =
         {
@@ -234,6 +257,7 @@ static void send_adc(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
 }
 int main(void)
 {
+    static uint8_t relay_status = 0;
     ow_temp_t core_temp;
     /* Enable external SRAM early */
     XMCRA |= (1<<SRE);
@@ -275,6 +299,7 @@ int main(void)
     //temp.dec = 0;
 
 
+  timer1_create_timer(trigger_remote_temp_event, 1000, PERIODIC, 500);
   timer1_create_timer(trigger_event, 100, PERIODIC, 0);
 //  timer1_create_timer(start_temp_event, 1000, PERIODIC, 0);
 //  timer1_create_timer(get_temp_event, 1000, PERIODIC, 200);
@@ -311,11 +336,15 @@ int main(void)
             trigger_conv_t();
             temp_event = 0;
         }
+        if (remote_temp_event)
+        {
+            get_aaps_a_temp(0, channel_lookup(1));
+            get_aaps_a_temp(1, channel_lookup(1));
+            remote_temp_event = 0;
+        }
         if (event)
         {
             /* Handle IRQ events */
-            //get_aaps_a_temp(0, channel_lookup(1));
-            //get_aaps_a_temp(1, channel_lookup(1));
             static uint8_t ch = 0;
             get_adc(ch++ % 8, channel_lookup(1));
             event = 0;
@@ -332,7 +361,7 @@ int main(void)
                     {
                         case IPC_DATA_THERMO:
                             t.temp = pkt.data[1]; t.dec = pkt.data[2];
-                            send_temp(&t, pkt.data[0] + 1);
+                            send_temp(&t, pkt.data[0]);
                             break;
                         case IPC_DATA_CURRENT:
                             send_adc(pkt.data[2],  pkt.data[3],
@@ -350,6 +379,10 @@ int main(void)
                             break;
                         case IPC_DATA_ENC_BTN:
                             change_scale(); 
+                            break;
+                        case IPC_DATA_ENC_LONGPRESS:
+                            relay_status ^= 1;
+                            set_relay(relay_status, 0);
                             break;
                         case IPC_DATA_ENC_CW:
                             voltage(dac_voltage, (void*)1);

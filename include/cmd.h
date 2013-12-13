@@ -17,4 +17,6 @@ int get_adc(uint16_t channel, struct spi_device_t *dev);
 
 extern uint16_t dac_current_limit;
 extern uint16_t dac_voltage;
+void send_set_led(uint8_t led, uint8_t on);
+int set_relay(uint16_t enable, struct spi_device_t *dev);
 #endif
