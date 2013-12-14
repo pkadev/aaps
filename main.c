@@ -136,6 +136,23 @@ static void send_temp(ow_temp_t *temp, uint8_t sensor)
     free(pkt.data);
 }
 
+void adc_voltage(uint8_t msb, uint8_t lsb, uint8_t ch, uint64_t *res)
+{
+    uint16_t value = (msb << 8) | lsb;
+    switch(ch)
+    {
+        case 1:
+        *res = 6250000 * (uint64_t)value / 66129;
+          break;
+        case 2:
+            *res = 62500 * (uint64_t)value;
+          break;
+        case 0:
+        case 3:
+            *res = 62500 * (uint64_t)value / 1279;
+          break;
+    }
+}
 
 static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
 {
@@ -150,23 +167,21 @@ static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
      */
     if (ch == 2)
     {
-        uint32_t adc = 0;
-        uint16_t value = (msb << 8) | lsb;
+        uint64_t adc; 
         const uint8_t Gc = 20;
         const uint8_t Rs = 40;
-        uint16_t Iout = 0;
+        uint32_t Iout = 0;
 
-        /* TODO: Check for potential ovorflow bugs */
-        adc = 625 * (uint32_t)value;
-        Iout = adc / (Rs * Gc * 10); /*Add factor 10 to get back to correct base */
+        adc_voltage(msb, lsb, ch, &adc);
+        Iout = adc / (Rs * Gc); /*Add factor 10 to get back to correct base */
         //printk("Iout: %u\n", Iout);
         
         struct ipc_packet_t pkt =
         {
-            .len = 7,
+            .len = 8,
             .cmd = IPC_CMD_DISPLAY_CURRENT,
         };
-        pkt.data = malloc(2);
+        pkt.data = malloc(4);
         if (pkt.data == NULL)
             printk("send_voltage malloc failed\n");
 
@@ -175,42 +190,38 @@ static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
         pkt.data[1] = ch;
         pkt.data[2] = Iout >> 8;
         pkt.data[3] = Iout & 0xff;
+        pkt.data[4] = Iout >> 16;
 
-        pkt.crc = crc8(pkt.data, 4);
+        pkt.crc = crc8(pkt.data, 5);
         if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
             printk("send_voltage failed!\n");
         free(pkt.data);
     }
 }
 
+                     /* TODO: Remove type? */
 static void send_voltage(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
 {
-    uint32_t adc = 0;
-    uint16_t value = (msb << 8) | lsb;
-
-    if (ch == 1)
-        adc = 625 * (uint32_t)value / 6613;
-    else if (ch == 0)
-        adc = 625 * (uint32_t)value / 1279;
-
-    value  = adc & 0xffff;
+    uint64_t adc;
+    adc_voltage(msb, lsb, ch, &adc);
 
     struct ipc_packet_t pkt =
     {
-        .len = 7,
+        .len = 8,
         .cmd = IPC_CMD_DISPLAY_VOLTAGE,
     };
-    pkt.data = malloc(2);
+    pkt.data = malloc(5);
     if (pkt.data == NULL)
         printk("send_voltage malloc failed\n");
-
+    
     /* Voltage in mV */
     pkt.data[0] = type;
     pkt.data[1] = ch;
-    pkt.data[2] = value >> 8;
-    pkt.data[3] = value & 0xff;
+    pkt.data[2] = adc & 0xff;
+    pkt.data[3] = (adc >> 8) & 0xff;
+    pkt.data[4] = adc >> 16;
 
-    pkt.crc = crc8(pkt.data, 4);
+    pkt.crc = crc8(pkt.data, 5);
     if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
         printk("send_voltage failed!\n");
     free(pkt.data);
