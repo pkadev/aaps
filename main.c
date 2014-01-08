@@ -282,6 +282,13 @@ static void send_adc(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
 int main(void)
 {
     ow_temp_t core_temp;
+	 #define CS_SDM PJ4	//CS for SD card flash must be low (controls buffer U11)
+	 #define CS_FLASH PD6 //CS for flash set low
+	 DDRD |= (1<<PD6);
+	 DDRJ |= (1<<PJ4);
+	 PORTD &= ~(1<<CS_FLASH);
+	 PORTJ &= ~(1<<CS_SDM);
+	
     /* Enable external SRAM early */
     XMCRA |= (1<<SRE);
 
