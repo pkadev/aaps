@@ -22,7 +22,7 @@
 #include "storage.h"
 #include "spi.h"
 #include "aaps_a.h"
-
+static uint8_t clind_led_event = 0;
 static uint8_t remote_temp_event = 0;
 static uint8_t event = 0;
 static uint8_t temp_event = 0;
@@ -53,9 +53,15 @@ int disable_led0(void)
     return 0;
 }
 
-uint16_t dac_current_limit = 0;
-uint16_t dac_voltage = 0;
+/* System control */
+uint32_t dac_current_limit = 0;
+uint32_t dac_voltage = 0;
 uint16_t scale = 1; 
+bool display_calculated_values = 0;
+bool input_calculated_values = 0;
+static uint8_t relay_status = 0;
+static uint8_t rled_status = 0;
+static bool sys_ilimit_active = false;
 
 void change_scale(void)
 {
@@ -79,6 +85,11 @@ void change_scale(void)
 int trigger_remote_temp_event(void)
 {
     remote_temp_event = 1;
+    return 0;
+}
+int activate_clind_led(void)
+{
+    clind_led_event = 1;
     return 0;
 }
 int trigger_event(void)
@@ -194,7 +205,7 @@ static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
 
         pkt.crc = crc8(pkt.data, 5);
         if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
-            printk("send_voltage failed!\n");
+            printk("send_current failed!\n");
         free(pkt.data);
     }
 }
@@ -227,21 +238,23 @@ static void send_voltage(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
     free(pkt.data);
 }
 
-static void send_dac(uint16_t value, uint8_t type)
+static void send_dac(uint32_t value, uint8_t type)
 {
     struct ipc_packet_t pkt =
     {
-        .len = 6,
+        .len = 8,
         .cmd = IPC_CMD_DISPLAY_DAC,
     };
-    pkt.data = malloc(3);
+    pkt.data = malloc(5);
     if (pkt.data == NULL)
-        printk("malloc1 failed\n");
+        printk("dac malloc failed\n");
     pkt.data[0] = type;
-    pkt.data[1] = value >> 8;
-    pkt.data[2] = value & 0xff;
+    pkt.data[1] = value & 0xff;
+    pkt.data[2] = value >> 8;
+    pkt.data[3] = value >> 16;;
+    pkt.data[4] = value >> 24;
 
-    pkt.crc = crc8(pkt.data, 3);
+    pkt.crc = crc8(pkt.data, 5);
     if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
         printk("put packet failed\n");
     free(pkt.data);
@@ -268,7 +281,6 @@ static void send_adc(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
 }
 int main(void)
 {
-    static uint8_t relay_status = 0;
     ow_temp_t core_temp;
     /* Enable external SRAM early */
     XMCRA |= (1<<SRE);
@@ -310,8 +322,9 @@ int main(void)
     //temp.dec = 0;
 
 
-  timer1_create_timer(trigger_remote_temp_event, 1000, PERIODIC, 500);
+  timer1_create_timer(trigger_remote_temp_event, 750, PERIODIC, 500);
   timer1_create_timer(trigger_event, 100, PERIODIC, 0);
+  timer1_create_timer(activate_clind_led, 150, PERIODIC, 20);
 //  timer1_create_timer(start_temp_event, 1000, PERIODIC, 0);
 //  timer1_create_timer(get_temp_event, 1000, PERIODIC, 200);
 //  timer1_create_timer(card_detect, 500, PERIODIC, 0);
@@ -328,6 +341,7 @@ int main(void)
 
     uint16_t cnt = 0;
     uint8_t slave = NO_IRQ;
+    static uint8_t toggle = 0;
     init_aaps_a(analog_zero.hw_ch);
     init_aaps_a(analog_one.hw_ch);
     struct ipc_packet_t pkt;
@@ -349,8 +363,8 @@ int main(void)
         }
         if (remote_temp_event)
         {
-            get_aaps_a_temp(0, channel_lookup(1));
-            get_aaps_a_temp(1, channel_lookup(1));
+            get_aaps_a_temp(toggle, channel_lookup(1));
+            toggle ^= 1;
             remote_temp_event = 0;
         }
         if (event)
@@ -360,6 +374,13 @@ int main(void)
             get_adc(ch++ % 8, channel_lookup(1));
             event = 0;
         }
+        if (clind_led_event && sys_ilimit_active)
+        {
+            rled_status ^= 1;
+            send_set_led(IPC_LED_RED, rled_status);
+            clind_led_event = 0;
+        }
+
         slave = ipc_which_irq(irq_from_slave);
         if (slave != NO_IRQ) {
             cnt++;
@@ -376,20 +397,20 @@ int main(void)
                             break;
                         case IPC_DATA_CURRENT:
                             send_adc(pkt.data[2],  pkt.data[3],
-                                     pkt.data[1], pkt.data[0]); 
+                                     pkt.data[1], pkt.data[0]);
                             send_current(pkt.data[2],  pkt.data[3],
                                      pkt.data[1], pkt.data[0]);
                             send_dac(dac_current_limit, pkt.data[0]);
                             break;
                         case IPC_DATA_VOLTAGE:
                             send_adc(pkt.data[2],  pkt.data[3],
-                                     pkt.data[1], pkt.data[0]); 
+                                     pkt.data[1], pkt.data[0]);
                             send_voltage(pkt.data[2],  pkt.data[3],
-                                     pkt.data[1], pkt.data[0]); 
+                                     pkt.data[1], pkt.data[0]);
                             send_dac(dac_voltage, pkt.data[0]);
                             break;
                         case IPC_DATA_ENC_BTN:
-                            change_scale(); 
+                            change_scale();
                             break;
                         case IPC_DATA_ENC_LONGPRESS:
                             relay_status ^= 1;
@@ -403,7 +424,44 @@ int main(void)
                             voltage(dac_voltage, (void*)1);
                             dac_voltage -= scale;
                             break;
-                        
+                        case IPC_DATA_ENC_SW0:
+                            display_calculated_values =
+                                display_calculated_values ? false : true;
+                            printk("Display calculated: %u\n",
+                                   display_calculated_values);
+                            break;
+                        case IPC_DATA_ENC_SW1:
+                            break;
+                        case IPC_DATA_ENC_SW2:
+                            dac_voltage = 0;
+                            dac_current_limit = 0;
+                            voltage(dac_voltage, 0);
+                            current(dac_current_limit, 0);
+                            break;
+                        case IPC_DATA_CLIND:
+                                sys_ilimit_active = pkt.data[0] ? true : false;
+                                if (sys_ilimit_active)
+                                {
+                                    if (relay_status)
+                                        send_set_led(IPC_LED_GREEN, !pkt.data[0]);
+                                    else
+                                        send_set_led(IPC_LED_RED, 0);
+                                }
+                                else
+                                {
+                                    if (relay_status)
+                                    {
+                                        send_set_led(IPC_LED_GREEN, 1);
+                                        send_set_led(IPC_LED_RED, 0);
+                                    }
+                                    else
+                                        send_set_led(IPC_LED_RED, 0);
+
+                                }
+                            printk("CLIND: %u\n", sys_ilimit_active);
+                            break;
+                        default:
+                            printk("Unknown data type: 0x%x\n", pkt.cmd);
                     }
                     //printk("len: %u\n", pkt.len);
                     //printk("cmd: 0x%02x\n", pkt.cmd);

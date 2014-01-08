@@ -18,14 +18,12 @@ int (*pt2Function)() = 0;
 static uint8_t initialized = 0;
 static cmd_input_t cmd_input;
 static void find_service(const char * service);
-uint16_t param = 0;
+uint32_t param = 0;
 struct spi_device_t *dev = 0;
 /*
  * Functions that can be registered
  */
 static int help(void);
-static int temp_out(void);
-static int current(uint16_t current, struct spi_device_t *dev);
 static int reboot(void);
 static int fan0_speed(uint16_t speed);
 static int fan1_speed(uint16_t speed);
@@ -100,7 +98,6 @@ void pending_cmd(void)
 
 static struct cmd_list_t cmd_list[] = {
     { "help", help },
-    { "test", temp_out },
     { "voltage", voltage },
     { "current", current },
     { "reboot", reboot },
@@ -119,7 +116,7 @@ static void find_service(const char * service)
     char *delimiter = strchr(service, ' ');
 
     if(delimiter) {
-        param = atoi(delimiter+1);
+        param = atol(delimiter+1);
         *delimiter = 0x00;
 
         /* Check if command has a channel as
@@ -180,7 +177,7 @@ static int help(void)
     return 0;
 }
 
-static int current(uint16_t current, struct spi_device_t *dev)
+int current(uint32_t current, struct spi_device_t *dev)
 {
     ipc_ret_t res;
     uint8_t total_len = 5;
@@ -193,6 +190,16 @@ static int current(uint16_t current, struct spi_device_t *dev)
     };
 
     dac_current_limit = current;
+
+    if (input_calculated_values)
+    {
+        printk("Calculated current values\n");
+        current /= 78; //µA per bit
+    }
+
+    if (!display_calculated_values)
+        dac_current_limit = current;
+
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
         printk("malloc4 failed\n");
@@ -210,9 +217,8 @@ static int current(uint16_t current, struct spi_device_t *dev)
     return 0;
 }
 
-int voltage(uint16_t voltage, struct spi_device_t *dev)
+int voltage(uint32_t voltage, struct spi_device_t *dev)
 {
-    //printk("Voltage %u\n", dac_voltage);
     ipc_ret_t res;
     uint8_t total_len = 5;
     uint8_t payload_len  = total_len - IPC_PKT_OVERHEAD;
@@ -222,7 +228,33 @@ int voltage(uint16_t voltage, struct spi_device_t *dev)
         .cmd = IPC_CMD_SET_VOLTAGE,
     };
 
+    
     dac_voltage = voltage;
+    uint32_t ratio;
+    uint32_t convert = (uint32_t)voltage * 100;
+    if (input_calculated_values)
+    {
+        printk("Calculated voltage values\n");
+        if (voltage > 32000000)
+        {
+            printk("Voltages above 32000 is not supported %lu\n", voltage);
+            return 0;
+        }
+        ratio = 57340;  //Trimmed value for Pelles aaps_a
+        convert /= ratio; 
+        //An offset might describe reality in a better way
+        voltage = convert;
+    }
+    
+    if (display_calculated_values && !input_calculated_values)
+    {
+        dac_voltage = voltage * ratio / 100;
+    }
+
+    if (!display_calculated_values)
+        dac_voltage = voltage;
+
+
 
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
@@ -239,17 +271,6 @@ int voltage(uint16_t voltage, struct spi_device_t *dev)
 
     free(pkt.data);
     dev = NULL;
-    return 0;
-}
-
-static int temp_out(void)
-{
-    ow_device_t rom;
-    ow_temp_t temperature;
-    if (ow_read_temperature(&rom, &temperature) == OW_RET_OK)
-        printk("Ambient temperature: %u.%u°C\n",temperature.temp, temperature.dec);
-    else
-        printk("CRC failed\n");
     return 0;
 }
 
@@ -325,7 +346,7 @@ int set_relay(uint16_t enable, struct spi_device_t *dev)
 int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
 {
     ipc_ret_t res;
-    uint8_t payload_len = 1; 
+    uint8_t payload_len = 1;
     uint8_t total_len = payload_len + IPC_PKT_OVERHEAD;
 
     struct ipc_packet_t pkt =
@@ -337,7 +358,7 @@ int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
         printk("malloc11 failed\n");
-    
+
     pkt.data[0] = channel & 0xff;
     //printk("Temp sensor: %u\n", pkt.data[0]);
     pkt.crc = crc8(pkt.data, payload_len);
@@ -354,7 +375,7 @@ int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
 int get_adc(uint16_t channel, struct spi_device_t *dev)
 {
     ipc_ret_t res;
-    uint8_t payload_len = 1; 
+    uint8_t payload_len = 1;
     uint8_t total_len = payload_len + IPC_PKT_OVERHEAD;
 
     struct ipc_packet_t pkt =
@@ -366,7 +387,7 @@ int get_adc(uint16_t channel, struct spi_device_t *dev)
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
         printk("malloc2 failed\n");
-    
+
     pkt.data[0] = channel & 0xff;
     pkt.crc = crc8(pkt.data, payload_len);
 

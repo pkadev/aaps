@@ -37,6 +37,10 @@ enum ipc_data_type_t
     IPC_DATA_ENC_BTN = 0x81,
     IPC_DATA_DAC = 0x82,
     IPC_DATA_ENC_LONGPRESS = 0x83,
+    IPC_DATA_ENC_SW0 = 0x84,
+    IPC_DATA_ENC_SW1 = 0x85,
+    IPC_DATA_ENC_SW2 = 0x86,
+    IPC_DATA_CLIND = 0x87,
 };
 
 enum ipc_led_type_t
