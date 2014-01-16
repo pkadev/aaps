@@ -29,6 +29,24 @@ static uint8_t temp_event = 0;
 static uint8_t temp_fetch_event = 0;
 //static struct system_settings sys_settings;
 
+#define CON4  12
+#define CON5  6
+#define CON6  7
+#define CON7  4
+#define CON8  5
+#define CON9  2
+#define CON10 3
+#define CON11 0
+#define CON12 1
+#define CON13 8
+#define CON15 9
+#define CON16 10
+#define CON17 11
+#define CON18 13
+
+uint8_t sys_analog = CON11;
+uint8_t sys_gui = CON9;
+
 int enable_led1(void)
 {
     led_ctrl(LED1, LED_ON);
@@ -123,7 +141,7 @@ void send_set_led(uint8_t led, uint8_t on)
     pkt.data[1] = on;
 
     pkt.crc = crc8(pkt.data, 2);
-    if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+    if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
         printk("put packet failed\n");
     free(pkt.data);
 }
@@ -142,7 +160,7 @@ static void send_temp(ow_temp_t *temp, uint8_t sensor)
     pkt.data[2] = temp->dec;
 
     pkt.crc = crc8(pkt.data, 3);
-    if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+    if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
         printk("put packet failed\n");
     free(pkt.data);
 }
@@ -204,7 +222,7 @@ static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
         pkt.data[4] = Iout >> 16;
 
         pkt.crc = crc8(pkt.data, 5);
-        if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+        if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
             printk("send_current failed!\n");
         free(pkt.data);
     }
@@ -224,7 +242,7 @@ static void send_voltage(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
     pkt.data = malloc(5);
     if (pkt.data == NULL)
         printk("send_voltage malloc failed\n");
-    
+
     /* Voltage in mV */
     pkt.data[0] = type;
     pkt.data[1] = ch;
@@ -233,7 +251,7 @@ static void send_voltage(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
     pkt.data[4] = adc >> 16;
 
     pkt.crc = crc8(pkt.data, 5);
-    if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+    if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
         printk("send_voltage failed!\n");
     free(pkt.data);
 }
@@ -255,7 +273,7 @@ static void send_dac(uint32_t value, uint8_t type)
     pkt.data[4] = value >> 24;
 
     pkt.crc = crc8(pkt.data, 5);
-    if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+    if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
         printk("put packet failed\n");
     free(pkt.data);
 }
@@ -275,12 +293,18 @@ static void send_adc(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
     pkt.data[3] = lsb;
 
     pkt.crc = crc8(pkt.data, 4);
-    if (ipc_put_pkt(0, &pkt) != IPC_RET_OK)
+    if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
         printk("put packet failed\n");
     free(pkt.data);
 }
 int main(void)
 {
+    /* This is a temporary configuration of the system */
+    //TODO: Channel initialization can't be hard coded like this
+    gui.hw_ch = system_channel[sys_gui];
+    analog.hw_ch = system_channel[sys_analog];
+    /* End temporary configuration of the system */
+
     ow_temp_t core_temp;
 	 #define CS_SDM PJ4	//CS for SD card flash must be low (controls buffer U11)
 	 #define CS_FLASH PD6 //CS for flash set low
@@ -288,20 +312,14 @@ int main(void)
 	 DDRJ |= (1<<PJ4);
 	 PORTD &= ~(1<<CS_FLASH);
 	 PORTJ &= ~(1<<CS_SDM);
-	
+
     /* Enable external SRAM early */
     XMCRA |= (1<<SRE);
 
     rst_save_reason();
     led_init();
     //wdt_enable(WDTO_4S);
-    hw_init();
 
-    //TODO: Channel initialization can't be hard coded like this
-    analog_zero.hw_ch = system_channel[0];
-    analog_one.hw_ch = system_channel[1];
-    init_aaps_a(analog_zero.hw_ch);
-    init_aaps_a(analog_one.hw_ch);
 
     uint8_t ow_num_sensors = ow_num_devices();
     ow_devices = malloc(sizeof(ow_device_t)*ow_num_sensors);
@@ -342,15 +360,16 @@ int main(void)
     /* Detect peripherals */
 //    uint8_t periph_type;
 //    for (uint8_t i = 0; i < HW_NBR_OF_CHANNELS; i++) {
-//        if (ipc_periph_detect(&analog_zero, &periph_type) != IPC_RET_OK)
+//        if (ipc_periph_detect(&gui, &periph_type) != IPC_RET_OK)
 //        printk("Error detecting peripherals\n");
   //  }
 
     uint16_t cnt = 0;
     uint8_t slave = NO_IRQ;
     static uint8_t toggle = 0;
-    init_aaps_a(analog_zero.hw_ch);
-    init_aaps_a(analog_one.hw_ch);
+    init_aaps_a(gui.hw_ch);
+    init_aaps_a(analog.hw_ch);
+
     struct ipc_packet_t pkt;
     while(1)
     {
@@ -370,7 +389,7 @@ int main(void)
         }
         if (remote_temp_event)
         {
-            get_aaps_a_temp(toggle, channel_lookup(1));
+            get_aaps_a_temp(toggle, sys_analog);
             toggle ^= 1;
             remote_temp_event = 0;
         }
@@ -378,7 +397,7 @@ int main(void)
         {
             /* Handle IRQ events */
             static uint8_t ch = 0;
-            get_adc(ch++ % 8, channel_lookup(1));
+            get_adc(ch++ % 8, sys_analog);
             event = 0;
         }
         if (clind_led_event && sys_ilimit_active)
@@ -421,14 +440,14 @@ int main(void)
                             break;
                         case IPC_DATA_ENC_LONGPRESS:
                             relay_status ^= 1;
-                            set_relay(relay_status, 0);
+                            set_relay(relay_status, sys_analog);
                             break;
                         case IPC_DATA_ENC_CW:
-                            voltage(dac_voltage, (void*)1);
+                            voltage(dac_voltage, sys_analog);
                             dac_voltage += scale;
                             break;
                         case IPC_DATA_ENC_CCW:
-                            voltage(dac_voltage, (void*)1);
+                            voltage(dac_voltage, sys_analog);
                             dac_voltage -= scale;
                             break;
                         case IPC_DATA_ENC_SW0:
@@ -442,8 +461,8 @@ int main(void)
                         case IPC_DATA_ENC_SW2:
                             dac_voltage = 0;
                             dac_current_limit = 0;
-                            voltage(dac_voltage, 0);
-                            current(dac_current_limit, 0);
+                            voltage(dac_voltage, sys_analog);
+                            current(dac_current_limit, sys_analog);
                             break;
                         case IPC_DATA_CLIND:
                                 sys_ilimit_active = pkt.data[0] ? true : false;

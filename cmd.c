@@ -14,26 +14,30 @@
 #include "ipc.h"
 #include "aaps_a.h"
 
-int (*pt2Function)() = 0;
+int (*pt2Function)(uint32_t, uint8_t) = 0;
 static uint8_t initialized = 0;
 static cmd_input_t cmd_input;
 static void find_service(const char * service);
 uint32_t param = 0;
-struct spi_device_t *dev = 0;
+uint8_t slave = 0xFF; //No slave can have id 0xFF
 /*
  * Functions that can be registered
  */
-static int help(void);
-static int reboot(void);
-static int fan0_speed(uint16_t speed);
-static int fan1_speed(uint16_t speed);
-static int set_relay_d(uint16_t enable, struct spi_device_t *dev);
+static int help(uint32_t n, uint8_t a);
+//static int reboot(void);
+static int reboot(uint32_t n, uint8_t a);
+//static int fan0_speed(uint16_t speed);
+static int fan0_speed(uint32_t speed, uint8_t not_used);
+static int fan1_speed(uint32_t speed, uint8_t not_used);
+//static int fan1_speed(uint16_t speed);
+//static int set_relay_d(uint16_t enable);
+static int set_relay_d(uint32_t enable, uint8_t not_used);
 
 #define CHAR_BACKSPACE 0x7F
 
 struct cmd_list_t {
     const char *name;
-    int (*func)();
+    int (*func)(uint32_t, uint8_t);
 };
 
 #define ASCII_CR 0x0D
@@ -84,7 +88,7 @@ void pending_cmd(void)
                 find_service(cmd_input.buffer);
 
                 if( pt2Function != 0) {
-                    pt2Function(param, dev);
+                    pt2Function(param, slave);
                     pt2Function = 0;
                 } else {
                     printk("%s not found\n", cmd_input.buffer);
@@ -132,9 +136,9 @@ static void find_service(const char * service)
              * to a integer within number of available
              * channels.
              */
-            dev = channel_lookup(atoi(delimiter+1));
+            slave = atoi(delimiter+1);
+            printk("lookup: %u\n", slave);
         } else {
-            dev = NULL;
         }
     }
 
@@ -148,7 +152,7 @@ static void find_service(const char * service)
 /*
  * Functions that can be registered
  */
-static int help(void)
+static int help(uint32_t n, uint8_t a)
 {
     uint8_t i;
     char *name;
@@ -177,8 +181,9 @@ static int help(void)
     return 0;
 }
 
-int current(uint32_t current, struct spi_device_t *dev)
+int current(uint32_t current, uint8_t slave)
 {
+    printk("Slave: %u\n", slave);
     ipc_ret_t res;
     uint8_t total_len = 5;
     uint8_t payload_len  = total_len - IPC_PKT_OVERHEAD;
@@ -203,21 +208,20 @@ int current(uint32_t current, struct spi_device_t *dev)
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
         printk("malloc4 failed\n");
-    
+
     pkt.data[0] = current & 0xff;
     pkt.data[1] = (current >> 8) & 0xff;
     pkt.crc = crc8(pkt.data, payload_len);
 
-    res = ipc_put_pkt(1, &pkt);
+    res = ipc_put_pkt(slave, &pkt);
     if (res != IPC_RET_OK)
         printk("put packet failed [%u]\n", res);
 
     free(pkt.data);
-    dev = NULL;
     return 0;
 }
 
-int voltage(uint32_t voltage, struct spi_device_t *dev)
+int voltage(uint32_t voltage, uint8_t slave)
 {
     ipc_ret_t res;
     uint8_t total_len = 5;
@@ -228,7 +232,6 @@ int voltage(uint32_t voltage, struct spi_device_t *dev)
         .cmd = IPC_CMD_SET_VOLTAGE,
     };
 
-    
     dac_voltage = voltage;
     uint32_t ratio;
     uint32_t convert = (uint32_t)voltage * 100;
@@ -241,7 +244,7 @@ int voltage(uint32_t voltage, struct spi_device_t *dev)
             return 0;
         }
         ratio = 57340;  //Trimmed value for Pelles aaps_a
-        convert /= ratio; 
+        convert /= ratio;
         //An offset might describe reality in a better way
         voltage = convert;
     }
@@ -259,22 +262,21 @@ int voltage(uint32_t voltage, struct spi_device_t *dev)
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
         printk("malloc6 failed\n");
-    
+
     pkt.data[0] = voltage & 0xff;
     pkt.data[1] = (voltage >> 8) & 0xff;
 
     pkt.crc = crc8(pkt.data, payload_len);
 
-    res = ipc_put_pkt(1, &pkt);
+    res = ipc_put_pkt(slave, &pkt);
     if (res != IPC_RET_OK)
         printk("put packet failed [%u]\n", res);
 
     free(pkt.data);
-    dev = NULL;
     return 0;
 }
 
-static int reboot(void)
+static int reboot(uint32_t n, uint8_t a)
 {
     printk("Rebooting...\n");
     wdt_enable(WDTO_250MS);
@@ -285,21 +287,21 @@ static int reboot(void)
     return 0;
 }
 
-static int fan0_speed(uint16_t speed)
+static int fan0_speed(uint32_t speed, uint8_t not_used)
 {
     printk("FAN0 speed: %u\n", speed);
     set_fan_speed(SYS_FAN0, speed);
     return 0;
 }
 
-static int fan1_speed(uint16_t speed)
+static int fan1_speed(uint32_t speed, uint8_t not_used)
 {
     printk("FAN1 speed: %u\n", speed);
     set_fan_speed(SYS_FAN1, speed);
     return 0;
 }
 
-static int set_relay_d(uint16_t enable, struct spi_device_t *dev)
+static int set_relay_d(uint32_t enable, uint8_t not_used)
 {
     ipc_ret_t res;
     struct ipc_packet_t pkt =
@@ -312,17 +314,18 @@ static int set_relay_d(uint16_t enable, struct spi_device_t *dev)
         printk("malloc9 failed\n");
     pkt.data[0] = enable ? 1 : 0;
     pkt.crc = crc8(pkt.data, 1);
-    res = ipc_put_pkt(1, &pkt);
+    res = ipc_put_pkt(slave, &pkt);
     if (res != IPC_RET_OK)
         printk("put packet failed [%u]\n", res);
     free(pkt.data);
-    dev = NULL;
     return 0;
 }
 
-int set_relay(uint16_t enable, struct spi_device_t *dev)
+int set_relay(uint32_t enable, uint8_t slave)
 {
+    /* TODO: This is a total hack! Remove it! */
 
+    printk("slave: %u\n", slave);
     ipc_ret_t res;
     struct ipc_packet_t pkt =
     {
@@ -334,16 +337,16 @@ int set_relay(uint16_t enable, struct spi_device_t *dev)
         printk("malloc99 failed\n");
     pkt.data[0] = enable ? 1 : 0;
     pkt.crc = crc8(pkt.data, 1);
-    res = ipc_put_pkt(1, &pkt);
+    res = ipc_put_pkt(slave, &pkt);
     if (res != IPC_RET_OK)
         printk("put packet failed [%u]\n", res);
     send_set_led(IPC_LED_GREEN, pkt.data[0]);
     free(pkt.data);
-    dev = NULL;
+    slave = 0xff;
     return 0;
 }
 
-int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
+int get_aaps_a_temp(uint32_t channel, uint8_t slave)
 {
     ipc_ret_t res;
     uint8_t payload_len = 1;
@@ -363,16 +366,15 @@ int get_aaps_a_temp(uint16_t channel, struct spi_device_t *dev)
     //printk("Temp sensor: %u\n", pkt.data[0]);
     pkt.crc = crc8(pkt.data, payload_len);
 
-    res = ipc_put_pkt(1, &pkt);
+    res = ipc_put_pkt(slave, &pkt);
     if (res != IPC_RET_OK)
         printk("put packet failed [%u]\n", res);
 
     free(pkt.data);
-    dev = NULL;
     return 0;
 }
 
-int get_adc(uint16_t channel, struct spi_device_t *dev)
+int get_adc(uint32_t channel, uint8_t slave)
 {
     ipc_ret_t res;
     uint8_t payload_len = 1;
@@ -391,11 +393,10 @@ int get_adc(uint16_t channel, struct spi_device_t *dev)
     pkt.data[0] = channel & 0xff;
     pkt.crc = crc8(pkt.data, payload_len);
 
-    res = ipc_put_pkt(1, &pkt);
+    res = ipc_put_pkt(slave, &pkt);
     if (res != IPC_RET_OK)
         printk("put packet failed [%u]\n", res);
 
     free(pkt.data);
-    dev = NULL;
     return 0;
 }

@@ -18,18 +18,19 @@
 #define PUT_WAIT_CNT 15000
 
 
-struct spi_device_t analog_zero =
+struct spi_device_t gui =
 {
     //.opto_coupled = true,
     //.hw_ch = system_channel[0],
     .init = init_aaps_a,
 };
-struct spi_device_t analog_one =
+struct spi_device_t analog =
 {
     //.opto_coupled = true,
     //.hw_ch = system_channel[0],
     .init = init_aaps_a,
 };
+
 volatile uint8_t send_semaphore = 0;
 volatile uint8_t spi_data_buf = 0;
 
@@ -39,10 +40,10 @@ ipc_ret_t ipc_get_pkt(uint8_t slave, struct ipc_packet_t *pkt)
     volatile uint8_t data;
     uint8_t buf = IPC_GET_BYTE;
     uint16_t wait_cnt = WAIT_CNT;
-    struct spi_device_t *dev = channel_lookup(slave);
+    struct hw_channel_t *hw_ch = channel_lookup(slave);
     ipc_ret_t result = IPC_RET_OK;
 
-    enable(dev->hw_ch);
+    enable(hw_ch);
     do
     {
         data = spi_transfer(buf);
@@ -115,20 +116,13 @@ no_answer:
     if (irq_from_slave[slave] < 0)
         return IPC_RET_ERROR_GENERIC;
 
-    disable(dev->hw_ch);
+    disable(hw_ch);
     return result;
 }
 
-struct spi_device_t *channel_lookup(uint8_t ch)
+struct hw_channel_t *channel_lookup(uint8_t ch)
 {
-    switch(ch)
-    {
-        case 0: { /*printk("ch0\n");*/ return &analog_zero; }
-        case 1: { /*printk("ch1\n");*/ return &analog_one; }
-        default:
-            printk("Error. No such channel [%u]\n", ch);
-    }
-    return NULL;
+    return system_channel[ch];
 }
 
 ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
@@ -136,12 +130,12 @@ ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
     uint8_t data;
     ipc_ret_t result = IPC_RET_OK;
     uint16_t wait_cnt = PUT_WAIT_CNT;
-    struct spi_device_t *dev = channel_lookup(slave);
+    struct hw_channel_t *hw_ch = channel_lookup(slave);
 
-    if (pkt == NULL || dev == NULL)
+    if (pkt == NULL || hw_ch == NULL)
         return IPC_RET_ERROR_BAD_PARAMS;
 
-    enable(dev->hw_ch);
+    enable(hw_ch);
     do
     {
         data = spi_transfer(IPC_PUT_BYTE);
@@ -175,7 +169,7 @@ ipc_ret_t ipc_put_pkt(uint8_t slave, struct ipc_packet_t *pkt)
 
 no_answer:
 
-    disable(dev->hw_ch);
+    disable(hw_ch);
     return result;
 }
 

@@ -26,6 +26,10 @@ void init_aaps_a(struct hw_channel_t *ch)
     DDRB |= (1<<MOSI) | (1<<SCK);
     DDRB |= (1<<PB0);
 
+    /* Enable IRQ */
+    if (ch->enable_irq != NULL)
+        ch->enable_irq(ch);
+
     /* Set CS pin as output */
     *(ch->ddr) |= (1<<ch->cs_pin);
 
