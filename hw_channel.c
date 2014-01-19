@@ -107,12 +107,10 @@ void enable_extint(struct hw_channel_t *hw_ch)
     if (hw_ch->irq_num == INT0 || hw_ch->irq_num == INT1 ||
         hw_ch->irq_num == INT2 || hw_ch->irq_num == INT3)
     {
-        printk("EICRA\n");
         EICRA |= (1 << hw_ch->irq_trig_conf);
     }
     else
     {
-        printk("EICRB\n");
         EICRB |= (1 << hw_ch->irq_trig_conf);
     }
 }

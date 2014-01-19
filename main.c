@@ -400,7 +400,7 @@ int main(void)
         {
             ipc_ret_t ret = ipc_periph_detect(pdetect_event-1);
             if (ret != IPC_RET_OK)
-                printk("CH%u not connected.\n", pdetect_event-1);
+                ;//printk("CH%u not connected.\n", pdetect_event-1);
             if (pdetect_event <= HW_NBR_OF_CHANNELS)
                 timer1_create_timer(perip_detect_event, 10, ONE_SHOT, 0);
 
