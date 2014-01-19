@@ -27,6 +27,7 @@ static uint8_t remote_temp_event = 0;
 static uint8_t event = 0;
 static uint8_t temp_event = 0;
 static uint8_t temp_fetch_event = 0;
+static uint8_t pdetect_event = 0;
 //static struct system_settings sys_settings;
 
 #define CON4  12
@@ -74,7 +75,7 @@ int disable_led0(void)
 /* System control */
 uint32_t dac_current_limit = 0;
 uint32_t dac_voltage = 0;
-uint16_t scale = 1; 
+uint16_t scale = 1;
 bool display_calculated_values = 0;
 bool input_calculated_values = 0;
 static uint8_t relay_status = 0;
@@ -124,6 +125,12 @@ int start_temp_event(void)
 int get_temp_event(void)
 {
     temp_fetch_event = 1;
+    return 0;
+}
+int perip_detect_event(void)
+{
+    static uint8_t cnt = 0;
+    pdetect_event = ++cnt;
     return 0;
 }
 
@@ -297,6 +304,25 @@ static void send_adc(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
         printk("put packet failed\n");
     free(pkt.data);
 }
+static ipc_ret_t ipc_periph_detect(uint8_t slave)
+{
+    ipc_ret_t ret = IPC_RET_OK;
+    struct ipc_packet_t pkt =
+    {
+        .len = 4,
+        .cmd = IPC_CMD_PERIPH_DETECT,
+    };
+    pkt.data = malloc(1);
+    if (pkt.data == NULL)
+        return IPC_RET_ERROR_OUT_OF_MEMORY;
+
+    pkt.data[0] = 0xff; /* Dummy data, not sure if it's needed */
+
+    pkt.crc = crc8(pkt.data, 1);
+    ret = ipc_put_pkt(slave, &pkt);
+    free(pkt.data);
+    return ret;
+}
 int main(void)
 {
     /* This is a temporary configuration of the system */
@@ -358,11 +384,7 @@ int main(void)
 //  timer1_create_timer(send_packet1, 2000, ONE_SHOT, 1000);
 
     /* Detect peripherals */
-//    uint8_t periph_type;
-//    for (uint8_t i = 0; i < HW_NBR_OF_CHANNELS; i++) {
-//        if (ipc_periph_detect(&gui, &periph_type) != IPC_RET_OK)
-//        printk("Error detecting peripherals\n");
-  //  }
+    timer1_create_timer(perip_detect_event, 500, ONE_SHOT, 0);
 
     uint16_t cnt = 0;
     uint8_t slave = NO_IRQ;
@@ -374,6 +396,16 @@ int main(void)
     while(1)
     {
         pending_cmd();
+        if (pdetect_event)
+        {
+            ipc_ret_t ret = ipc_periph_detect(pdetect_event-1);
+            if (ret != IPC_RET_OK)
+                printk("CH%u not connected.\n", pdetect_event-1);
+            if (pdetect_event <= HW_NBR_OF_CHANNELS)
+                timer1_create_timer(perip_detect_event, 10, ONE_SHOT, 0);
+
+            pdetect_event = 0;
+        }
         if (temp_fetch_event)
         {
             if (get_temp(&core_temp) == OW_RET_OK)
@@ -417,6 +449,10 @@ int main(void)
                 {   ow_temp_t t;
                     switch (pkt.cmd)
                     {
+                        case IPC_DATA_PERIPH_DETECT:
+                            printk("CH%u detected\n", slave);
+                            printk("   %u sensors\n", pkt.data[2]);
+                            break;
                         case IPC_DATA_THERMO:
                             t.temp = pkt.data[1]; t.dec = pkt.data[2];
                             send_temp(&t, pkt.data[0]);

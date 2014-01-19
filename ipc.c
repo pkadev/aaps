@@ -15,7 +15,7 @@
 #define IPC_GET_BYTE 0x55
 #define IPC_PUT_BYTE 0x66
 #define WAIT_CNT 15000
-#define PUT_WAIT_CNT 15000
+#define PUT_WAIT_CNT 1000
 
 
 struct spi_device_t gui =
