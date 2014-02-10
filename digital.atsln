@@ -1,6 +1,7 @@
+﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Atmel Studio Solution File, Format Version 11.00
-Project("{D1100916-62DA-4D80-A9B4-55A1E7CCEEB3}") = "digital", "digital.cproj", "{056DD706-D02A-494E-93DE-7FBCAE811CA4}"
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "digital", "digital.cproj", "{056DD706-D02A-494E-93DE-7FBCAE811CA4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

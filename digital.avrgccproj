@@ -15,8 +15,9 @@
     <Name>digital</Name>
     <RootNamespace>digital</RootNamespace>
     <Language>C</Language>
-    <ToolchainName>com.Atmel.AVRGCC8</ToolchainName>
+    <ToolchainName>com.Atmel.AVRGCC8.C</ToolchainName>
     <UseGlobalToolchain>True</UseGlobalToolchain>
+    <ToolchainFlavour>Native</ToolchainFlavour>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <ToolchainSettings>

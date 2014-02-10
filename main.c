@@ -120,12 +120,12 @@ int trigger_event(void)
 int start_temp_event(void)
 {
     temp_event = 1;
-    return 0;
+	return 0;
 }
 int get_temp_event(void)
 {
     temp_fetch_event = 1;
-    return 0;
+	return 0;
 }
 int perip_detect_event(void)
 {
@@ -344,9 +344,8 @@ int main(void)
 
     rst_save_reason();
     led_init();
-    //wdt_enable(WDTO_4S);
-
-
+    wdt_enable(WDTO_8S);
+	
     uint8_t ow_num_sensors = ow_num_devices();
     ow_devices = malloc(sizeof(ow_device_t)*ow_num_sensors);
     ow_get_devices(ow_devices);
@@ -362,11 +361,13 @@ int main(void)
     timer_init();
     ds3234_init();
     timer1_init();
-
+	
+	//printk("__heap_start %p\n", __malloc_heap_start);
+	//printk("__heap_end %p\n", __malloc_heap_end);
     printk("DS3234 ctrl reg: 0x%x\n", ds3234_read_ctrl_reg());
     ow_print_device_addr(&(ow_devices[0]));
 
-//mem_test();
+mem_test();
 
     printk("Found %u sensors\n", ow_num_sensors);
     //temp.temp = 0;
@@ -376,8 +377,8 @@ int main(void)
   timer1_create_timer(trigger_remote_temp_event, 750, PERIODIC, 500);
   timer1_create_timer(trigger_event, 100, PERIODIC, 0);
   timer1_create_timer(activate_clind_led, 150, PERIODIC, 20);
-//  timer1_create_timer(start_temp_event, 1000, PERIODIC, 0);
-//  timer1_create_timer(get_temp_event, 1000, PERIODIC, 200);
+  timer1_create_timer(start_temp_event, 1000, PERIODIC, 0);
+  timer1_create_timer(get_temp_event, 1000, PERIODIC, 200);
 //  timer1_create_timer(card_detect, 500, PERIODIC, 0);
 //  timer1_create_timer(send_packet1, 100, PERIODIC, 5100);
 //  timer1_create_timer(send_packet2, 2000, ONE_SHOT, 0 );
@@ -388,14 +389,17 @@ int main(void)
 
     uint16_t cnt = 0;
     uint8_t slave = NO_IRQ;
-    static uint8_t toggle = 0;
+    static uint8_t temp_sensors_id = 0;
+	static uint8_t num_aaps_a_sensors = 0;
     init_aaps_a(gui.hw_ch);
     init_aaps_a(analog.hw_ch);
 
     struct ipc_packet_t pkt;
-    while(1)
+    
+	while(1)
     {
-        pending_cmd();
+        wdt_reset();
+		pending_cmd();
         if (pdetect_event)
         {
             ipc_ret_t ret = ipc_periph_detect(pdetect_event-1);
@@ -410,7 +414,8 @@ int main(void)
         {
             if (get_temp(&core_temp) == OW_RET_OK)
             {
-                send_temp(&core_temp, 0);
+               
+				send_temp(&core_temp, 5);
             }
             temp_fetch_event = 0;
         }
@@ -421,9 +426,12 @@ int main(void)
         }
         if (remote_temp_event)
         {
-            get_aaps_a_temp(toggle, sys_analog);
-            toggle ^= 1;
-            remote_temp_event = 0;
+            
+           get_aaps_a_temp(temp_sensors_id, sys_analog);
+		   temp_sensors_id++;
+           temp_sensors_id %= num_aaps_a_sensors;
+		  	   
+		   remote_temp_event = 0;
         }
         if (event)
         {
@@ -452,8 +460,14 @@ int main(void)
                         case IPC_DATA_PERIPH_DETECT:
                             printk("CH%u detected\n", slave);
                             printk("   %u sensors\n", pkt.data[2]);
+							if (pkt.data[2] != 0)
+							{
+								num_aaps_a_sensors = pkt.data[2];
+							}
+							
                             break;
                         case IPC_DATA_THERMO:
+							
                             t.temp = pkt.data[1]; t.dec = pkt.data[2];
                             send_temp(&t, pkt.data[0]);
                             break;
