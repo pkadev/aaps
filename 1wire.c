@@ -3,7 +3,6 @@
 #include "uart.h"
 #include "1wire.h"
 #include "m128_hal.h"
-
 /*
  * One Wire Command defines
  */
