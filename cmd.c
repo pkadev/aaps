@@ -137,7 +137,7 @@ static void find_service(const char * service)
              * channels.
              */
             slave = atoi(delimiter+1);
-            printk("lookup: %u\n", slave);
+            //printk("lookup: %u\n", slave);
         } else {
         }
     }
@@ -183,7 +183,7 @@ static int help(uint32_t n, uint8_t a)
 
 int current(uint32_t current, uint8_t slave)
 {
-    printk("Slave: %u\n", slave);
+    printk("Current\n");
     ipc_ret_t res;
     uint8_t total_len = 5;
     uint8_t payload_len  = total_len - IPC_PKT_OVERHEAD;
@@ -223,6 +223,7 @@ int current(uint32_t current, uint8_t slave)
 
 int voltage(uint32_t voltage, uint8_t slave)
 {
+	printk("voltage\n");
     ipc_ret_t res;
     uint8_t total_len = 5;
     uint8_t payload_len  = total_len - IPC_PKT_OVERHEAD;

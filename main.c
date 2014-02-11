@@ -72,6 +72,9 @@ int disable_led0(void)
     return 0;
 }
 
+#define INPUT_CURRENT false
+#define INPUT_VOLTAGE true
+
 /* System control */
 uint32_t dac_current_limit = 0;
 uint32_t dac_voltage = 0;
@@ -81,6 +84,7 @@ bool input_calculated_values = 0;
 static uint8_t relay_status = 0;
 static uint8_t rled_status = 0;
 static bool sys_ilimit_active = false;
+static bool which_input = INPUT_CURRENT;
 
 void change_scale(void)
 {
@@ -99,6 +103,7 @@ void change_scale(void)
         scale = 1;
      break;
     }
+    printk("scale: %u\n", scale);
 }
 #define MAX_VOLTAGE 0xdb0f //Approximately calibrated max voltage
 int trigger_remote_temp_event(void)
@@ -362,12 +367,10 @@ int main(void)
     ds3234_init();
     timer1_init();
 	
-	//printk("__heap_start %p\n", __malloc_heap_start);
-	//printk("__heap_end %p\n", __malloc_heap_end);
     printk("DS3234 ctrl reg: 0x%x\n", ds3234_read_ctrl_reg());
     ow_print_device_addr(&(ow_devices[0]));
 
-mem_test();
+//mem_test();
 
     printk("Found %u sensors\n", ow_num_sensors);
     //temp.temp = 0;
@@ -396,7 +399,7 @@ mem_test();
 
     struct ipc_packet_t pkt;
     
-	while(1)
+    while(1)
     {
         wdt_reset();
 		pending_cmd();
@@ -488,6 +491,11 @@ mem_test();
                         case IPC_DATA_ENC_BTN:
                             change_scale();
                             break;
+                        case IPC_DATA_ENC_DB_BTN:
+                            which_input = which_input ? INPUT_CURRENT : INPUT_VOLTAGE;
+                            printk("Changed input to %s\n",
+                                which_input ? "voltage" : "current");
+                            break;
                         case IPC_DATA_ENC_LONGPRESS:
                             relay_status ^= 1;
                             set_relay(relay_status, sys_analog);
@@ -495,10 +503,12 @@ mem_test();
                         case IPC_DATA_ENC_CW:
                             voltage(dac_voltage, sys_analog);
                             dac_voltage += scale;
+                            printk("rot+ %lu\n", dac_voltage);
                             break;
                         case IPC_DATA_ENC_CCW:
                             voltage(dac_voltage, sys_analog);
                             dac_voltage -= scale;
+                            printk("rot- %lu\n", dac_voltage);
                             break;
                         case IPC_DATA_ENC_SW0:
                             display_calculated_values =
