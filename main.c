@@ -154,7 +154,7 @@ void send_set_led(uint8_t led, uint8_t on)
 
     pkt.crc = crc8(pkt.data, 2);
     if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
-        printk("put packet failed\n");
+        printk("Set led failed\n");
     free(pkt.data);
 }
 static void send_temp(ow_temp_t *temp, uint8_t sensor)
@@ -173,7 +173,7 @@ static void send_temp(ow_temp_t *temp, uint8_t sensor)
 
     pkt.crc = crc8(pkt.data, 3);
     if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
-        printk("put packet failed\n");
+        printk("Send temp failed\n");
     free(pkt.data);
 }
 
@@ -286,7 +286,7 @@ static void send_dac(uint32_t value, uint8_t type)
 
     pkt.crc = crc8(pkt.data, 5);
     if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
-        printk("put packet failed\n");
+        printk("send_dac failed\n");
     free(pkt.data);
 }
 static void send_adc(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
@@ -306,7 +306,7 @@ static void send_adc(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
 
     pkt.crc = crc8(pkt.data, 4);
     if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
-        printk("put packet failed\n");
+        printk("send_adc failed\n");
     free(pkt.data);
 }
 static ipc_ret_t ipc_periph_detect(uint8_t slave)
@@ -370,7 +370,7 @@ int main(void)
     printk("DS3234 ctrl reg: 0x%x\n", ds3234_read_ctrl_reg());
     ow_print_device_addr(&(ow_devices[0]));
 
-//mem_test();
+mem_test();
 
     printk("Found %u sensors\n", ow_num_sensors);
     //temp.temp = 0;
@@ -454,7 +454,8 @@ int main(void)
         if (slave != NO_IRQ) {
             cnt++;
             //printk("irq from slave %u\n", slave);
-            if (ipc_get_pkt(slave, &pkt) == IPC_RET_OK)
+            ipc_ret_t result = ipc_get_pkt(slave, &pkt);
+            if (result == IPC_RET_OK)
             {
                 if (crc8(pkt.data, pkt.len - IPC_PKT_OVERHEAD) == pkt.crc)
                 {   ow_temp_t t;
@@ -492,7 +493,8 @@ int main(void)
                             change_scale();
                             break;
                         case IPC_DATA_ENC_DB_BTN:
-                            which_input = which_input ? INPUT_CURRENT : INPUT_VOLTAGE;
+                            which_input = which_input ? INPUT_CURRENT :
+							INPUT_VOLTAGE;
                             printk("Changed input to %s\n",
                                 which_input ? "voltage" : "current");
                             break;
@@ -501,28 +503,53 @@ int main(void)
                             set_relay(relay_status, sys_analog);
                             break;
                         case IPC_DATA_ENC_CW:
-                            voltage(dac_voltage, sys_analog);
-                            dac_voltage += scale;
-                            printk("rot+ %lu\n", dac_voltage);
+                            if (which_input)
+                            {
+                                voltage(dac_voltage, sys_analog);
+                                dac_voltage += scale;
+                                printk("rot+ %lu\n", dac_voltage);
+                            }
+                            else
+                            {
+                                current(dac_current_limit, sys_analog);
+                                dac_current_limit += scale;
+                                printk("rot+ %lu\n", dac_current_limit);
+                            }
                             break;
                         case IPC_DATA_ENC_CCW:
-                            voltage(dac_voltage, sys_analog);
-                            dac_voltage -= scale;
-                            printk("rot- %lu\n", dac_voltage);
+                            if (which_input)
+                            {
+                                if (dac_voltage - scale < dac_voltage)
+                                {
+                                        voltage(dac_voltage, sys_analog);
+                                        dac_voltage -= scale;
+                                        printk("rot- %lu\n", dac_voltage);
+                                } else printk("bottom\n");
+                            }
+                            else
+                            {
+                                if (dac_current_limit - scale < dac_current_limit)
+                                {
+                                    current(dac_current_limit, sys_analog);
+                                    dac_current_limit -= scale;
+                                    printk("rot- %lu\n", dac_current_limit);
+                                } else printk("top\n");
+                            }
                             break;
                         case IPC_DATA_ENC_SW0:
-                            display_calculated_values =
-                                display_calculated_values ? false : true;
-                            printk("Display calculated: %u\n",
-                                   display_calculated_values);
+                            //display_calculated_values =
+                            //    display_calculated_values ? false : true;
+                            //printk("Display calculated: %u\n",
+                            //       display_calculated_values);
+                            printk("Changed display page\n");
                             break;
                         case IPC_DATA_ENC_SW1:
-                            break;
-                        case IPC_DATA_ENC_SW2:
                             dac_voltage = 0;
                             dac_current_limit = 0;
                             voltage(dac_voltage, sys_analog);
                             current(dac_current_limit, sys_analog);
+                            break;
+                        case IPC_DATA_ENC_SW2:
                             break;
                         case IPC_DATA_CLIND:
                                 sys_ilimit_active = pkt.data[0] ? true : false;
@@ -564,7 +591,7 @@ int main(void)
             }
             else
             {
-                printk("get failed\n");
+                printk("get failed err:%u\n", result);
             }
         }
     }
