@@ -544,9 +544,7 @@ mem_test();
                             printk("Changed display page\n");
                             break;
                         case IPC_DATA_ENC_SW1:
-                            dac_voltage = 0;
                             dac_current_limit = 0;
-                            voltage(dac_voltage, sys_analog);
                             current(dac_current_limit, sys_analog);
                             break;
                         case IPC_DATA_ENC_SW2:
