@@ -33,6 +33,8 @@ static int fan1_speed(uint32_t speed, uint8_t not_used);
 //static int set_relay_d(uint16_t enable);
 static int set_relay_d(uint32_t enable, uint8_t not_used);
 
+int raw_v(uint32_t raw, uint8_t slave);
+int raw_c(uint32_t raw, uint8_t slave);
 #define CHAR_BACKSPACE 0x7F
 
 struct cmd_list_t {
@@ -45,7 +47,7 @@ struct cmd_list_t {
 ISR(USART2_RX_vect)
 {
     char c = UART_DATA_REG;
-    if(isalnum(c) || c == ASCII_CR || c == ' ')
+    if(isalnum(c) || c == ASCII_CR || c == ' ' || c == '_')
     {
         if (c == ASCII_CR) {
             c = 0x00;
@@ -102,7 +104,9 @@ void pending_cmd(void)
 
 static struct cmd_list_t cmd_list[] = {
     { "help", help },
+    { "raw_v", raw_v },
     { "voltage", voltage },
+    { "raw_c", raw_c },
     { "current", current },
     { "reboot", reboot },
     { "fan0", fan0_speed },
@@ -180,10 +184,17 @@ static int help(uint32_t n, uint8_t a)
     }
     return 0;
 }
-
-int current(uint32_t current, uint8_t slave)
+int current(uint32_t raw, uint8_t slave)
 {
-    printk("Current\n");
+    printk("current\n");
+    uint32_t translated_current = raw;
+    translated_current /= 78; //µA per bit
+    raw_c(translated_current, slave);
+    return 0;
+}
+int raw_c(uint32_t current, uint8_t slave)
+{
+    printk("raw_c\n");
     ipc_ret_t res;
     uint8_t total_len = 5;
     uint8_t payload_len  = total_len - IPC_PKT_OVERHEAD;
@@ -195,12 +206,6 @@ int current(uint32_t current, uint8_t slave)
     };
 
     dac_current_limit = current;
-
-    if (input_calculated_values)
-    {
-        printk("Calculated current values\n");
-        current /= 78; //µA per bit
-    }
 
     if (!display_calculated_values)
         dac_current_limit = current;
@@ -221,7 +226,16 @@ int current(uint32_t current, uint8_t slave)
     return 0;
 }
 
-int voltage(uint32_t voltage, uint8_t slave)
+int voltage(uint32_t raw, uint8_t slave)
+{
+	printk("raw_v\n");
+    uint32_t translated_voltage = raw * 100;
+    translated_voltage /= 57535; /* <--- This is a trim value */
+    raw_v(translated_voltage, slave);
+    return 0;
+}
+
+int raw_v(uint32_t voltage, uint8_t slave)
 {
 	printk("voltage\n");
     ipc_ret_t res;
@@ -234,35 +248,10 @@ int voltage(uint32_t voltage, uint8_t slave)
     };
 
     dac_voltage = voltage;
-    uint32_t ratio;
-    uint32_t convert = (uint32_t)voltage * 100;
-    if (input_calculated_values)
-    {
-        printk("Calculated voltage values\n");
-        if (voltage > 32000000)
-        {
-            printk("Voltages above 32000 is not supported %lu\n", voltage);
-            return 0;
-        }
-        ratio = 57340;  //Trimmed value for Pelles aaps_a
-        convert /= ratio;
-        //An offset might describe reality in a better way
-        voltage = convert;
-    }
     
-    if (display_calculated_values && !input_calculated_values)
-    {
-        dac_voltage = voltage * ratio / 100;
-    }
-
-    if (!display_calculated_values)
-        dac_voltage = voltage;
-
-
-
     pkt.data = malloc(payload_len);
     if (pkt.data == NULL)
-        printk("malloc6 failed\n");
+        printk("raw_v failed\n");
 
     pkt.data[0] = voltage & 0xff;
     pkt.data[1] = (voltage >> 8) & 0xff;
@@ -271,7 +260,7 @@ int voltage(uint32_t voltage, uint8_t slave)
 
     res = ipc_put_pkt(slave, &pkt);
     if (res != IPC_RET_OK)
-        printk("put packet failed [%u]\n", res);
+        printk("raw_v pkt failed [%u]\n", res);
 
     free(pkt.data);
     return 0;
