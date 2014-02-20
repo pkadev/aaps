@@ -505,15 +505,23 @@ mem_test();
                         case IPC_DATA_ENC_CW:
                             if (which_input)
                             {
-                                voltage(dac_voltage, sys_analog);
-                                dac_voltage += scale;
-                                printk("rot+ %lu\n", dac_voltage);
+                                if ((uint16_t)dac_voltage + scale >
+                                    dac_voltage)
+                                {
+                                    voltage(dac_voltage, sys_analog);
+                                    dac_voltage += scale;
+                                    printk("rot+ %lu\n", dac_voltage);
+                                }
                             }
                             else
                             {
-                                current(dac_current_limit, sys_analog);
-                                dac_current_limit += scale;
-                                printk("rot+ %lu\n", dac_current_limit);
+                                if ((uint16_t)dac_current_limit + scale >
+                                    dac_current_limit)
+                                {
+                                    current(dac_current_limit, sys_analog);
+                                    dac_current_limit += scale;
+                                    printk("rot+ %lu\n", dac_current_limit);
+                                }
                             }
                             break;
                         case IPC_DATA_ENC_CCW:
