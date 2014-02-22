@@ -33,8 +33,6 @@ static int fan1_speed(uint32_t speed, uint8_t not_used);
 //static int set_relay_d(uint16_t enable);
 static int set_relay_d(uint32_t enable, uint8_t not_used);
 
-int raw_v(uint32_t raw, uint8_t slave);
-int raw_c(uint32_t raw, uint8_t slave);
 #define CHAR_BACKSPACE 0x7F
 
 struct cmd_list_t {
@@ -189,6 +187,7 @@ int current(uint32_t raw, uint8_t slave)
     printk("current\n");
     uint32_t translated_current = raw;
     translated_current /= 78; //µA per bit
+    dac_current_limit_calc = raw;
     raw_c(translated_current, slave);
     return 0;
 }
@@ -228,16 +227,19 @@ int raw_c(uint32_t current, uint8_t slave)
 
 int voltage(uint32_t raw, uint8_t slave)
 {
-	printk("raw_v\n");
+	printk("voltage\n");
     uint32_t translated_voltage = raw * 100;
     translated_voltage /= 57535; /* <--- This is a trim value */
+    dac_voltage = translated_voltage;
+    printk("dac_voltage: %lu\n", translated_voltage);
+    dac_voltage_calc = raw;
     raw_v(translated_voltage, slave);
     return 0;
 }
 
 int raw_v(uint32_t voltage, uint8_t slave)
 {
-	printk("voltage\n");
+	printk("raw_v\n");
     ipc_ret_t res;
     uint8_t total_len = 5;
     uint8_t payload_len  = total_len - IPC_PKT_OVERHEAD;

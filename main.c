@@ -77,10 +77,11 @@ int disable_led0(void)
 
 /* System control */
 uint32_t dac_current_limit = 0;
+uint32_t dac_current_limit_calc = 0;
 uint32_t dac_voltage = 0;
+uint32_t dac_voltage_calc = 0;
 uint16_t scale = 1;
 bool display_calculated_values = 0;
-bool input_calculated_values = 0;
 static uint8_t relay_status = 0;
 static uint8_t rled_status = 0;
 static bool sys_ilimit_active = false;
@@ -471,7 +472,6 @@ mem_test();
 							
                             break;
                         case IPC_DATA_THERMO:
-							
                             t.temp = pkt.data[1]; t.dec = pkt.data[2];
                             send_temp(&t, pkt.data[0]);
                             break;
@@ -480,14 +480,20 @@ mem_test();
                                      pkt.data[1], pkt.data[0]);
                             send_current(pkt.data[2],  pkt.data[3],
                                      pkt.data[1], pkt.data[0]);
-                            send_dac(dac_current_limit, pkt.data[0]);
+                            if(display_calculated_values)
+                                send_dac(dac_current_limit_calc, pkt.data[0]);
+                            else
+                                send_dac(dac_current_limit, pkt.data[0]);
                             break;
                         case IPC_DATA_VOLTAGE:
                             send_adc(pkt.data[2],  pkt.data[3],
                                      pkt.data[1], pkt.data[0]);
                             send_voltage(pkt.data[2],  pkt.data[3],
                                      pkt.data[1], pkt.data[0]);
-                            send_dac(dac_voltage, pkt.data[0]);
+                            if (display_calculated_values)
+                                send_dac(dac_voltage_calc, pkt.data[0]);
+                            else
+                                send_dac(dac_voltage, pkt.data[0]);
                             break;
                         case IPC_DATA_ENC_BTN:
                             change_scale();
@@ -505,55 +511,117 @@ mem_test();
                         case IPC_DATA_ENC_CW:
                             if (which_input)
                             {
-                                if ((uint16_t)dac_voltage + scale >
-                                    dac_voltage)
+                                if (display_calculated_values)
                                 {
-                                    voltage(dac_voltage, sys_analog);
-                                    dac_voltage += scale;
-                                    printk("rot+ %lu\n", dac_voltage);
+                                    if (dac_voltage_calc + scale < 32000000)
+                                    {
+                                        printk("V: %lu\n", dac_voltage_calc);
+                                        voltage(dac_voltage_calc, sys_analog);
+                                        dac_voltage_calc += scale;
+                                    }
+                                }
+                                else
+                                {
+                                    if ((uint16_t)dac_voltage + scale >
+                                        dac_voltage)
+                                    {
+                                        if (display_calculated_values)
+                                            voltage(dac_voltage, sys_analog);
+                                        else
+                                            raw_v(dac_voltage, sys_analog);
+                                        dac_voltage += scale;
+                                        printk("rot+ %lu\n", dac_voltage);
+                                    }
                                 }
                             }
                             else
                             {
-                                if ((uint16_t)dac_current_limit + scale >
-                                    dac_current_limit)
+                                if (display_calculated_values)
                                 {
-                                    current(dac_current_limit, sys_analog);
-                                    dac_current_limit += scale;
-                                    printk("rot+ %lu\n", dac_current_limit);
+                                    current(dac_current_limit_calc, sys_analog);
+                                    dac_current_limit_calc += scale;
+                                }
+                                else
+                                {
+                                    if ((uint16_t)dac_current_limit + scale >
+                                        dac_current_limit)
+                                    {
+                                        raw_c(dac_current_limit, sys_analog);
+                                        dac_current_limit += scale;
+                                        printk("rot+ %lu\n", dac_current_limit);
+                                    }
                                 }
                             }
                             break;
                         case IPC_DATA_ENC_CCW:
                             if (which_input)
                             {
-                                if (dac_voltage - scale < dac_voltage)
+                                if (display_calculated_values)
                                 {
-                                        voltage(dac_voltage, sys_analog);
-                                        dac_voltage -= scale;
-                                        printk("rot- %lu\n", dac_voltage);
-                                } else printk("bottom\n");
+                                    if (dac_voltage_calc - scale < dac_voltage_calc)
+                                    {
+                                       printk("V: %lu\n", dac_voltage_calc);
+                                       voltage(dac_voltage_calc, sys_analog);
+                                       dac_voltage_calc -= scale;
+                                    }
+                                }
+                                else
+                                {
+                                    if (dac_voltage - scale < dac_voltage)
+                                    {
+                                            raw_v(dac_voltage, sys_analog);
+                                            dac_voltage -= scale;
+                                            printk("rot- %lu\n", dac_voltage);
+                                    } else printk("bottom\n");
+                                }
                             }
                             else
                             {
-                                if (dac_current_limit - scale < dac_current_limit)
+                                if (display_calculated_values)
                                 {
-                                    current(dac_current_limit, sys_analog);
-                                    dac_current_limit -= scale;
-                                    printk("rot- %lu\n", dac_current_limit);
-                                } else printk("top\n");
+                                    current(dac_current_limit_calc, sys_analog);
+                                    dac_current_limit_calc -= scale;
+                                }
+                                else
+                                {
+                                    if (dac_current_limit - scale < dac_current_limit)
+                                    {
+                                        raw_c(dac_current_limit, sys_analog);
+                                        dac_current_limit -= scale;
+                                        printk("rot- %lu\n", dac_current_limit);
+                                    } else printk("top\n");
+                                }
                             }
                             break;
                         case IPC_DATA_ENC_SW0:
-                            //display_calculated_values =
-                            //    display_calculated_values ? false : true;
-                            //printk("Display calculated: %u\n",
-                            //       display_calculated_values);
                             printk("Changed display page\n");
                             break;
+                        case IPC_DATA_ENC_SW0_LONGPRESS:
+                            printk("SW0 Longpress\n");
+                            display_calculated_values =
+                                display_calculated_values ? false : true;
+                            printk("Display calculated: %u\n",
+                                   display_calculated_values);
+                            if (display_calculated_values)
+                            {
+                                dac_voltage_calc = dac_voltage * 575;
+                                dac_current_limit_calc = dac_current_limit * 78;
+                                printk("To calculated values\n");
+                            }
+                            else
+                            {
+                                dac_current_limit = dac_current_limit_calc / 78;
+                                printk("Back to raw\n");
+                            }
+                            break;
                         case IPC_DATA_ENC_SW1:
-                            dac_current_limit = 0;
+                            dac_current_limit_calc = dac_current_limit = 0;
                             current(dac_current_limit, sys_analog);
+                            break;
+                        case IPC_DATA_ENC_SW1_LONGPRESS:
+                            printk("SW1 Longpress\n");
+                            dac_voltage_calc = dac_voltage = 0;
+                            raw_v(dac_voltage, sys_analog);
                             break;
                         case IPC_DATA_ENC_SW2:
                             break;
