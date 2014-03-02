@@ -45,6 +45,7 @@ static uint8_t pdetect_event = 0;
 #define CON17 11
 #define CON18 13
 
+    uint64_t vm30_voltage;
 uint8_t sys_analog = CON11;
 uint8_t sys_gui = CON9;
 
@@ -196,7 +197,7 @@ void adc_voltage(uint8_t msb, uint8_t lsb, uint8_t ch, uint64_t *res)
     }
 }
 
-static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
+static uint32_t calculate_current(uint8_t msb, uint8_t lsb, uint8_t ch)
 {
     /*
      * Vc=uppmätt värde på ADC ingången
@@ -207,16 +208,22 @@ static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
      * 
      * Vc=Iut*Rs*Gc  => Iut=Vc/(Rs*Gc)
      */
+    uint64_t tmp_adc;
+    const uint8_t Gc = 20;
+    const uint8_t Rs = 40;
+    uint32_t Iout = 0;
+
+    adc_voltage(msb, lsb, ch, &tmp_adc);
+    Iout = tmp_adc / (Rs * Gc); /*Add factor 10 to get back to correct base */
+    return Iout;
+}
+
+static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
+{
     if (ch == 2)
     {
-        uint64_t adc; 
-        const uint8_t Gc = 20;
-        const uint8_t Rs = 40;
-        uint32_t Iout = 0;
-
-        adc_voltage(msb, lsb, ch, &adc);
-        Iout = adc / (Rs * Gc); /*Add factor 10 to get back to correct base */
-        //printk("Iout: %u\n", Iout);
+        uint32_t Iout = calculate_current(msb, lsb, ch);
+        printk("Iout: %u\n", Iout);
         
         struct ipc_packet_t pkt =
         {
@@ -244,6 +251,7 @@ static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
                      /* TODO: Remove type? */
 static void send_voltage(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
 {
+
     uint64_t adc;
     adc_voltage(msb, lsb, ch, &adc);
 
@@ -267,6 +275,91 @@ static void send_voltage(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
     if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
         printk("send_voltage failed!\n");
     free(pkt.data);
+}
+
+static void send_power(uint8_t msb, uint8_t lsb, uint8_t ch)
+{
+    #define Q1  0
+    #define Q2  1
+    #define R22 2
+    #define RS  3
+    #define RCB  4
+
+    #define UIN 34  /* <-- Measured voltage */
+
+    if (ch == 2)
+    {
+        uint32_t Iout = calculate_current(msb, lsb, ch);
+        Iout /= 1000;
+        uint32_t power_q1_2 = (UIN - vm30_voltage / 1000) * Iout / 2;
+        uint32_t power_r22 = (22 * pow(0.5 * Iout, 2)) / 100;
+        uint32_t power_rs = (40 * Iout * Iout) / 1000;
+        uint32_t power_rcb = (1 * Iout);
+        printk("Iout: %u\n", Iout);
+        printk("power_q1_2: %lu\n", power_q1_2);
+        printk("power_r22: %lu\n", power_r22);
+        printk("power_rs: %lu\n", power_rs);
+        printk("power_rcb %lu\n", power_rcb);
+        struct ipc_packet_t pkt =
+        {
+            .len = 7,
+            .cmd = IPC_CMD_DISPLAY_POWER,
+        };
+        pkt.data = malloc(5);
+        if (pkt.data == NULL)
+            printk("send_voltage malloc failed\n");
+
+        /* Voltage in mV */
+        pkt.data[0] = Q1;
+        pkt.data[1] = power_q1_2 & 0xff;
+        pkt.data[2] = (power_q1_2 >> 8) & 0xff;
+        pkt.data[3] = power_q1_2 >> 16;
+
+        pkt.crc = crc8(pkt.data, 4);
+        if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
+            printk("send_power q1 failed!\n");
+
+        /* Next packet */
+        pkt.data[0] = Q2;
+        pkt.data[1] = power_q1_2 & 0xff;
+        pkt.data[2] = (power_q1_2 >> 8) & 0xff;
+        pkt.data[3] = power_q1_2 >> 16;
+
+        pkt.crc = crc8(pkt.data, 4);
+        if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
+            printk("send_power q2 failed!\n");
+
+        /* Next packet */
+        pkt.data[0] = R22;
+        pkt.data[1] = power_r22 & 0xff;
+        pkt.data[2] = (power_r22 >> 8) & 0xff;
+        pkt.data[3] = power_r22 >> 16;
+
+        pkt.crc = crc8(pkt.data, 4);
+        if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
+            printk("send_power r22 failed!\n");
+
+        /* Next packet */
+        pkt.data[0] = RS;
+        pkt.data[1] = power_rs & 0xff;
+        pkt.data[2] = (power_rs >> 8) & 0xff;
+        pkt.data[3] = power_rs >> 16;
+
+        pkt.crc = crc8(pkt.data, 4);
+        if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
+            printk("send_power rs failed!\n");
+
+        /* Next packet */
+        pkt.data[0] = RCB;
+        pkt.data[1] = power_rcb & 0xff;
+        pkt.data[2] = (power_rcb >> 8) & 0xff;
+        pkt.data[3] = power_rcb >> 16;
+
+        pkt.crc = crc8(pkt.data, 4);
+        if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
+            printk("send_power rcb failed!\n");
+        free(pkt.data);
+    }
 }
 
 static void send_dac(uint32_t value, uint8_t type)
@@ -480,6 +573,9 @@ mem_test();
                                      pkt.data[1], pkt.data[0]);
                             send_current(pkt.data[2],  pkt.data[3],
                                      pkt.data[1], pkt.data[0]);
+
+                            send_power(pkt.data[2], pkt.data[3],
+                                          pkt.data[1]);
                             if(display_calculated_values)
                                 send_dac(dac_current_limit_calc, pkt.data[0]);
                             else
@@ -490,6 +586,13 @@ mem_test();
                                      pkt.data[1], pkt.data[0]);
                             send_voltage(pkt.data[2],  pkt.data[3],
                                      pkt.data[1], pkt.data[0]);
+                            if (pkt.data[1] == 0)
+                            {
+                                 adc_voltage(pkt.data[2], pkt.data[3],
+                                             pkt.data[1], &vm30_voltage);
+                                vm30_voltage /= 100;
+                                printk("Voltage: %lu\n", vm30_voltage);
+                            }
                             if (display_calculated_values)
                                 send_dac(dac_voltage_calc, pkt.data[0]);
                             else
