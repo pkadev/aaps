@@ -223,7 +223,7 @@ static void send_current(uint8_t msb, uint8_t lsb, uint8_t ch, uint8_t type)
     if (ch == 2)
     {
         uint32_t Iout = calculate_current(msb, lsb, ch);
-        printk("Iout: %u\n", Iout);
+        //printk("Iout: %u\n", Iout);
         
         struct ipc_packet_t pkt =
         {
@@ -295,11 +295,11 @@ static void send_power(uint8_t msb, uint8_t lsb, uint8_t ch)
         uint32_t power_r22 = (22 * pow(0.5 * Iout, 2)) / 100;
         uint32_t power_rs = (40 * Iout * Iout) / 1000;
         uint32_t power_rcb = (1 * Iout);
-        printk("Iout: %u\n", Iout);
-        printk("power_q1_2: %lu\n", power_q1_2);
-        printk("power_r22: %lu\n", power_r22);
-        printk("power_rs: %lu\n", power_rs);
-        printk("power_rcb %lu\n", power_rcb);
+        //printk("Iout: %u\n", Iout);
+        //printk("power_q1_2: %lu\n", power_q1_2);
+        //printk("power_r22: %lu\n", power_r22);
+        //printk("power_rs: %lu\n", power_rs);
+        //printk("power_rcb %lu\n", power_rcb);
         struct ipc_packet_t pkt =
         {
             .len = 7,
@@ -591,7 +591,6 @@ mem_test();
                                  adc_voltage(pkt.data[2], pkt.data[3],
                                              pkt.data[1], &vm30_voltage);
                                 vm30_voltage /= 100;
-                                printk("Voltage: %lu\n", vm30_voltage);
                             }
                             if (display_calculated_values)
                                 send_dac(dac_voltage_calc, pkt.data[0]);

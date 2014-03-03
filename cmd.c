@@ -317,7 +317,6 @@ int set_relay(uint32_t enable, uint8_t slave)
 {
     /* TODO: This is a total hack! Remove it! */
 
-    printk("slave: %u\n", slave);
     ipc_ret_t res;
     struct ipc_packet_t pkt =
     {
