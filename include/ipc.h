@@ -24,6 +24,7 @@ enum ipc_command_t
     IPC_CMD_DISPLAY_DAC,
     IPC_CMD_DISPLAY_POWER,
     IPC_CMD_SET_LED,
+    IPC_CMD_DISPLAY_SCALE,
 };
 
 enum ipc_data_type_t

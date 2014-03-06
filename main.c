@@ -88,6 +88,7 @@ static uint8_t rled_status = 0;
 static bool sys_ilimit_active = false;
 static bool which_input = INPUT_CURRENT;
 
+void send_scale(uint16_t scale, uint8_t input);
 void change_scale(void)
 {
     switch (scale)
@@ -139,6 +140,26 @@ int perip_detect_event(void)
     static uint8_t cnt = 0;
     pdetect_event = ++cnt;
     return 0;
+}
+
+void send_scale(uint16_t scale, uint8_t input)
+{
+    struct ipc_packet_t pkt =
+    {
+        .len = 6,
+        .cmd = IPC_CMD_DISPLAY_SCALE,
+    };
+    pkt.data = malloc(3);
+    if (pkt.data == NULL)
+        printk("send scale malloc failed\n");
+    pkt.data[0] = scale >> 8;
+    pkt.data[1] = scale & 0xff;
+    pkt.data[2] = which_input;
+
+    pkt.crc = crc8(pkt.data, 3);
+    if (ipc_put_pkt(sys_gui, &pkt) != IPC_RET_OK)
+        printk("send_scale failed\n");
+    free(pkt.data);
 }
 
 void send_set_led(uint8_t led, uint8_t on)
@@ -511,8 +532,8 @@ mem_test();
         {
             if (get_temp(&core_temp) == OW_RET_OK)
             {
-               
 				send_temp(&core_temp, 5);
+                send_scale(scale, which_input);
             }
             temp_fetch_event = 0;
         }
