@@ -228,8 +228,8 @@ int raw_c(uint32_t current, uint8_t slave)
 int voltage(uint32_t raw, uint8_t slave)
 {
 	printk("voltage\n");
-    uint32_t translated_voltage = raw * 100;
-    translated_voltage /= 65535; /* <--- This is a trim value */
+    uint32_t translated_voltage = raw;
+    translated_voltage /= 500; /* <--- This is a trim value */
     dac_voltage = translated_voltage;
     printk("dac_voltage: %lu\n", translated_voltage);
     dac_voltage_calc = raw;
